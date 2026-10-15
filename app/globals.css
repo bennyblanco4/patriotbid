@@ -625,6 +625,8 @@ footer {
   flex-direction: column;
 }
 .sheet-body {
+  /* The close button scrolls with the content instead of covering it. */
+  position: relative;
   min-height: 0;
   padding: 24px;
   overflow-y: auto;
