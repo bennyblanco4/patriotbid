@@ -452,14 +452,6 @@ select {
   position: absolute;
   inset: 0;
 }
-.meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 10px;
-  margin-top: 4px;
-  color: var(--faint);
-  font-size: 11px;
-}
 .due {
   white-space: nowrap;
 }

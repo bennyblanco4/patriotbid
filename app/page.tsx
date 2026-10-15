@@ -1142,7 +1142,7 @@ export default function Home() {
                 <table className="list">
                   <thead>
                     <tr>
-                      <th>ITEM / NSN</th>
+                      <th>ITEM</th>
                       <th>CATEGORY</th>
                       <th className="num">QTY</th>
                       <th>SET-ASIDE</th>
@@ -1164,10 +1164,6 @@ export default function Home() {
                                 <button className="open" onClick={() => show(r)}>
                                   {r.title}
                                 </button>
-                                <span className="meta">
-                                  <span className="mono">{r.nsn}</span>
-                                  <span className="nowrap">{r.solicitation}</span>
-                                </span>
                               </div>
                             </div>
                           </td>
