@@ -6,5 +6,4 @@ data/
 *.tsbuildinfo
 .DS_Store
 
-# Local assignment brief
-SP_opportunities_page_task Arjon.pdf
+*.pdf

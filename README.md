@@ -2,7 +2,7 @@
 
 **A free, clearer view of DIBBS, the Defense Logistics Agency's bid board.** Find the military parts you can supply, see what the government paid last time, and spot the RFQs worth quoting.
 
-**[Try it live](https://salespatriot-9ebf514d9ea4.herokuapp.com/)** · No account, no login, no paywall.
+**[Try it live](https://patriotbid-f8edb2776ee7.herokuapp.com/)** · No account, no login, no paywall.
 
 ![PatriotBid demo: filtering by award method, searching, and opening past award prices](docs/demo.gif)
 
