@@ -3,27 +3,11 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   Bookmark,
-  Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Download,
-  FileText,
-  Filter,
-  Building2,
-  CalendarDays,
-  Clock3,
-  Heart,
-  MapPin,
-  Medal,
-  PackageOpen,
-  Radio,
   Search,
-  ShieldCheck,
-  Unlock,
-  Users,
+  SlidersHorizontal,
   X,
-  type LucideIcon,
 } from "lucide-react";
 import {
   daysLeft,
@@ -41,54 +25,42 @@ type Listing = {
   fetchedAt: string | null;
   stored: boolean;
 };
-function setAsideName(value: string) {
-  return value.replace(/\s+set-aside$/i, "").trim();
-}
 // Only a handful of distinct set-aside strings exist, but this runs per row
 // for filtering and rendering.
-const setAsideCache = new Map<string, { label: string; icon: LucideIcon }[]>();
-function setAsideParts(value: string): { label: string; icon: LucideIcon }[] {
+const setAsideCache = new Map<string, string[]>();
+function setAsideParts(value: string): string[] {
   let parts = setAsideCache.get(value);
   if (!parts) {
-    parts = readSetAside(value);
+    const text = value.toLowerCase();
+    parts = [];
+    if (text.includes("veteran")) parts.push("Veteran");
+    if (text.includes("woman")) parts.push("Woman owned");
+    if (text.includes("hubzone")) parts.push("HUBZone");
+    if (/8\s*\(?a\)?/.test(text)) parts.push("8(a)");
+    if (text.includes("small business")) parts.push("Small business");
+    if (text.includes("unrestricted")) parts.push("Unrestricted");
     if (setAsideCache.size < 500) setAsideCache.set(value, parts);
   }
   return parts;
 }
-function readSetAside(value: string): { label: string; icon: LucideIcon }[] {
-  const text = value.toLowerCase();
-  const parts: { label: string; icon: LucideIcon }[] = [];
-  if (text.includes("veteran")) parts.push({ label: "Veteran", icon: Medal });
-  if (text.includes("woman"))
-    parts.push({ label: "Woman owned", icon: Heart });
-  if (text.includes("hubzone")) parts.push({ label: "HUBZone", icon: MapPin });
-  if (/8\s*\(?a\)?/.test(text)) parts.push({ label: "8(a)", icon: Building2 });
-  if (text.includes("small business"))
-    parts.push({ label: "Small business", icon: Users });
-  if (text.includes("unrestricted"))
-    parts.push({ label: "Unrestricted", icon: Unlock });
-  return parts;
-}
-function SetAsideLabel({ value }: { value: string }) {
+function SetAside({ value }: { value: string }) {
   const parts = setAsideParts(value);
-  const boxes =
-    parts.length > 0
-      ? parts
-      : [{ label: setAsideName(value) || "Not specified", icon: null }];
+  if (!parts.length)
+    return (
+      <span className="tag">
+        {value.replace(/\s+set-aside$/i, "").trim() || "Not specified"}
+      </span>
+    );
   return (
-    <span className="set-asides">
-      {boxes.map((part) => {
-        const Icon = part.icon;
-        return (
-          <span
-            key={part.label}
-            className={`badge ${part.label === "Unrestricted" ? "neutral" : "blue"}`}
-          >
-            {Icon ? <Icon size={12} aria-hidden="true" /> : null}
-            {part.label}
-          </span>
-        );
-      })}
+    <span className="tags">
+      {parts.map((part) => (
+        <span
+          key={part}
+          className={part === "Unrestricted" ? "tag" : "tag tint"}
+        >
+          {part}
+        </span>
+      ))}
     </span>
   );
 }
@@ -99,275 +71,30 @@ const formatDate = (value: string | null) =>
         day: "numeric",
       })
     : "Not provided";
-const formatFullDate = (value: string) =>
-  new Date(value + "T12:00:00").toLocaleDateString("en-US", {
+function formatIssue(value: string) {
+  const [month, day, year] = value.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString("en-US", {
+    weekday: "short",
     month: "short",
     day: "numeric",
     year: "numeric",
   });
-function issueToIso(value: string) {
-  const [month, day, year] = value.split("-");
-  return `${year}-${month}-${day}`;
 }
-function isoToIssue(value: string) {
-  const [year, month, day] = value.split("-");
-  return `${month}-${day}-${year}`;
-}
-function monthStart(value: string) {
-  const [year, month] = value.split("-").map(Number);
-  return new Date(year, month - 1, 1);
-}
-function toIso(date: Date) {
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${date.getFullYear()}-${month}-${day}`;
-}
-function DateMenu({
-  label,
-  value,
-  onChange,
-  allowed,
-  emptyLabel,
-  clearLabel,
-  disabled,
-}: {
-  label: string;
-  value: string;
-  onChange: (iso: string) => void;
-  allowed?: string[];
-  emptyLabel?: string;
-  clearLabel?: string;
-  disabled?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
-  const [cursor, setCursor] = useState(() =>
-    value ? monthStart(value) : new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-  );
-  useEffect(() => {
-    if (open && value) setCursor(monthStart(value));
-  }, [open, value]);
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: MouseEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const key = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", key);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", key);
-    };
-  }, [open]);
-  const year = cursor.getFullYear();
-  const month = cursor.getMonth();
-  const leading = new Date(year, month, 1).getDay();
-  const days = new Date(year, month + 1, 0).getDate();
-  const allowedSet = allowed ? new Set(allowed) : null;
-  return (
-    <div className="date-field" ref={root}>
-      <span>{label}</span>
-      <button
-        type="button"
-        className="date-button"
-        aria-label={label}
-        aria-expanded={open}
-        disabled={disabled}
-        onClick={() => setOpen((current) => !current)}
-      >
-        <span>{value ? formatFullDate(value) : emptyLabel}</span>
-        <CalendarDays size={14} />
-      </button>
-      {open && (
-        <div className="calendar" role="dialog" aria-label={`${label} calendar`}>
-          <div className="calendar-head">
-            <button
-              type="button"
-              aria-label="Previous month"
-              onClick={() => setCursor(new Date(year, month - 1, 1))}
-            >
-              <ChevronLeft size={14} />
-            </button>
-            <strong>
-              {cursor.toLocaleDateString("en-US", {
-                month: "long",
-                year: "numeric",
-              })}
-            </strong>
-            <button
-              type="button"
-              aria-label="Next month"
-              onClick={() => setCursor(new Date(year, month + 1, 1))}
-            >
-              <ChevronRight size={14} />
-            </button>
-          </div>
-          <div className="calendar-week">
-            {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
-              <span key={day}>{day}</span>
-            ))}
-          </div>
-          <div className="calendar-grid">
-            {Array.from({ length: leading }, (_, index) => (
-              <span key={`empty-${index}`} />
-            ))}
-            {Array.from({ length: days }, (_, index) => {
-              const iso = toIso(new Date(year, month, index + 1));
-              const blocked = allowedSet ? !allowedSet.has(iso) : false;
-              return (
-                <button
-                  type="button"
-                  key={iso}
-                  disabled={blocked}
-                  className={iso === value ? "selected" : ""}
-                  onClick={() => {
-                    onChange(iso);
-                    setOpen(false);
-                  }}
-                >
-                  {index + 1}
-                </button>
-              );
-            })}
-          </div>
-          {clearLabel && (
-            <button
-              type="button"
-              className="calendar-clear"
-              onClick={() => {
-                onChange("");
-                setOpen(false);
-              }}
-            >
-              {clearLabel}
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-function OptionIcons({ icons }: { icons?: LucideIcon[] }) {
-  if (!icons?.length) return null;
-  return (
-    <span className="menu-icons">
-      {icons.map((Icon, index) => (
-        <Icon key={`${index}`} size={12} aria-hidden="true" />
-      ))}
-    </span>
-  );
-}
-function OptionMenu({
-  label,
-  value,
-  placeholder,
-  options,
-  onChange,
-  search,
-}: {
-  label: string;
-  value: string;
-  placeholder: string;
-  options: { value: string; label: string; icons?: LucideIcon[] }[];
-  onChange: (value: string) => void;
-  search?: boolean;
-}) {
-  const [open, setOpen] = useState(false),
-    [query, setQuery] = useState(""),
-    root = useRef<HTMLDivElement>(null),
-    searchBox = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    setQuery("");
-    const frame = requestAnimationFrame(() => searchBox.current?.focus());
-    const close = (event: MouseEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const key = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", key);
-    return () => {
-      cancelAnimationFrame(frame);
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", key);
-    };
-  }, [open]);
-  const selected = options.find((option) => option.value === value);
-  const needle = query.trim().toLowerCase();
-  const shown = options.filter(
-    (option) =>
-      !needle ||
-      option.label.toLowerCase().includes(needle) ||
-      option.value.toLowerCase().includes(needle),
-  );
-  return (
-    <div className="date-field" ref={root}>
-      <span>{label}</span>
-      <button
-        type="button"
-        className="date-button"
-        aria-label={label}
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
-      >
-        <span className="menu-value">
-          {selected ? <OptionIcons icons={selected.icons} /> : null}
-          <span>{selected?.label || placeholder}</span>
-        </span>
-        <ChevronDown size={14} />
-      </button>
-      {open && (
-        <div className="option-menu" role="listbox" aria-label={label}>
-          {search && (
-            <input
-              ref={searchBox}
-              className="menu-search"
-              placeholder="Search"
-              value={query}
-              aria-label={`Search ${label}`}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          )}
-          <button
-            type="button"
-            className={value ? "" : "selected"}
-            onClick={() => {
-              onChange("");
-              setOpen(false);
-            }}
-          >
-            {placeholder}
-          </button>
-          <div className="option-list">
-            {shown.map((option) => (
-              <button
-                type="button"
-                key={option.value}
-                role="option"
-                aria-selected={option.value === value}
-                className={option.value === value ? "selected" : ""}
-                onClick={() => {
-                  onChange(option.value);
-                  setOpen(false);
-                }}
-              >
-                <OptionIcons icons={option.icons} />
-                <span>{option.label}</span>
-              </button>
-            ))}
-            {!shown.length && <p className="menu-empty">No matches</p>}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+function dueText(days: number | null) {
+  if (days === null) return "Check source";
+  if (days < 0) return "Past due";
+  if (days === 0) return "Due today";
+  return days === 1 ? "1 day left" : `${days} days left`;
 }
 type Sort = { key: "title" | "quantity" | "docs" | "due"; dir: "asc" | "desc" };
+const sorts: { value: string; label: string }[] = [
+  { value: "due:asc", label: "Due soonest" },
+  { value: "due:desc", label: "Due latest" },
+  { value: "quantity:desc", label: "Highest qty" },
+  { value: "quantity:asc", label: "Lowest qty" },
+  { value: "title:asc", label: "Name A to Z" },
+  { value: "docs:desc", label: "Tech docs first" },
+];
 function compareRows(a: Opportunity, b: Opportunity, sort: Sort, today: string) {
   const dir = sort.dir === "asc" ? 1 : -1;
   if (sort.key === "title") return a.title.localeCompare(b.title) * dir;
@@ -382,34 +109,6 @@ function compareRows(a: Opportunity, b: Opportunity, sort: Sort, today: string) 
   return (
     (Number(!!a.due && a.due < today) - Number(!!b.due && b.due < today) ||
       (a.due || "9999").localeCompare(b.due || "9999")) * dir
-  );
-}
-function SortHeader({
-  label,
-  column,
-  sort,
-  onSort,
-}: {
-  label: string;
-  column: Sort["key"];
-  sort: Sort;
-  onSort: (key: Sort["key"]) => void;
-}) {
-  const active = sort.key === column;
-  return (
-    <th aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-      <button
-        className={`sort-col${active ? " active" : ""}`}
-        onClick={() => onSort(column)}
-      >
-        {label}
-        <ChevronDown
-          size={11}
-          className={active && sort.dir === "asc" ? "up" : ""}
-          aria-hidden="true"
-        />
-      </button>
-    </th>
   );
 }
 export default function Home() {
@@ -614,14 +313,6 @@ export default function Home() {
     setFilters((f) => ({ ...f, [key]: value }));
     setPage(1);
   }
-  function chooseSort(key: Sort["key"]) {
-    setSort((current) =>
-      current.key === key
-        ? { key, dir: current.dir === "asc" ? "desc" : "asc" }
-        : { key, dir: key === "docs" || key === "quantity" ? "desc" : "asc" },
-    );
-    setPage(1);
-  }
   function toggleSaved(id: string) {
     const next = saved.includes(id)
       ? saved.filter((s) => s !== id)
@@ -640,8 +331,7 @@ export default function Home() {
     return filterRows(rows, { ...f, setAside: "" }, today)
       .filter(
         (r) =>
-          (!f.setAside ||
-            setAsideParts(r.setAside).some((part) => part.label === f.setAside)) &&
+          (!f.setAside || setAsideParts(r.setAside).includes(f.setAside)) &&
           (view !== "saved" || savedSet.has(r.id)),
       )
       .sort((a, b) => compareRows(a, b, sort, today));
@@ -722,563 +412,447 @@ export default function Home() {
     setSelected(r);
     dialog.current?.showModal();
   }
+  const sortValue = `${sort.key}:${sort.dir}`;
+  const pdf = selected ? selected.pdf || pdfLink(selected.solicitation) : null;
   return (
     <>
-      <header className="topbar">
-        <a className="brand" href="/">
-          <span className="brand-mark">
-            <ShieldCheck size={23} />
-          </span>
-          <span>
-            Patriot<span className="brand-light">Bid</span>
-            <small>DEFENSE PROCUREMENT</small>
-          </span>
-        </a>
-        <nav aria-label="Main navigation">
-          <button
-            className={view === "all" ? "active" : ""}
-            onClick={() => {
-              setView("all");
-              setPage(1);
-            }}
+      <header className="bar">
+        <div className="bar-inner">
+          <a className="brand" href="/">
+            PatriotBid
+          </a>
+          <div className="segmented" role="group" aria-label="View">
+            <button
+              aria-pressed={view === "all"}
+              onClick={() => {
+                setView("all");
+                setPage(1);
+              }}
+            >
+              All
+            </button>
+            <button
+              aria-pressed={view === "saved"}
+              onClick={() => {
+                setView("saved");
+                setPage(1);
+              }}
+            >
+              Watchlist{saved.length ? ` (${saved.length})` : ""}
+            </button>
+          </div>
+          <a
+            className="bar-link"
+            href="https://www.dibbs.bsm.dla.mil/RFQ/"
+            target="_blank"
+            rel="noreferrer"
           >
-            Opportunities
-          </button>
-          <button
-            className={view === "saved" ? "active" : ""}
-            onClick={() => {
-              setView("saved");
-              setPage(1);
-            }}
-          >
-            Watchlist <span className="count">{saved.length}</span>
-          </button>
-        </nav>
-        <a
-          className="source-link"
-          href="https://www.dibbs.bsm.dla.mil/RFQ/"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Open DIBBS <ArrowUpRight size={15} />
-        </a>
-        <div className="avatar" title="Local supplier workspace">
-          SP
+            DIBBS <ArrowUpRight size={14} aria-hidden="true" />
+          </a>
         </div>
       </header>
       <main>
-        <div className="breadcrumb">
-          Workspace <span>/</span> Solicitation browser
-        </div>
-        <section className="heading">
+        <div className="title-row">
           <div>
-            <div className="eyebrow">
-              <span className="dot" /> DLA OPPORTUNITIES
-            </div>
-            <h1>
-              {view === "saved"
-                ? "Your watchlist"
-                : "Find your next opportunity."}
-            </h1>
-            <p>
-              {view === "saved"
-                ? "Your saved RFQs from the selected daily listing."
-                : "A clearer view of DIBBS. Find the parts you supply and the RFQs worth quoting."}
+            <h1>{view === "saved" ? "Watchlist" : "Opportunities"}</h1>
+            <p className="summary">
+              {filtered.length.toLocaleString()}{" "}
+              {filtered.length === 1 ? "RFQ" : "RFQs"}
+              {narrowed && rows.length
+                ? ` of ${rows.length.toLocaleString()}`
+                : ""}
+              {dueSoon ? ` · ${dueSoon.toLocaleString()} due within 7 days` : ""}
+              {view !== "saved" && savedCount
+                ? ` · ${savedCount} saved`
+                : ""}
+              {syncing && (
+                <span className="status">
+                  <span className="spinner" aria-hidden="true" /> Updating
+                </span>
+              )}
             </p>
           </div>
-        </section>
-        {view !== "saved" && (
-        <section className="stats" aria-label="Listing overview">
-          <div>
-            <span className="stat-label">
-              Opportunities <PackageOpen size={18} />
-            </span>
-            <strong>{filtered.length.toLocaleString()}</strong>
-            <small>
-              {listing?.date
-                ? `Issued ${listing.date.replaceAll("-", " / ")}`
-                : ready
-                  ? "Select an issue date"
-                  : "Loading issue dates"}
-            </small>
+          <label className="field date-pick">
+            <span>Issue date</span>
+            <select
+              value={listing?.date || ""}
+              disabled={!dateOptions.length}
+              onChange={(e) => void choose(e.target.value)}
+            >
+              {!dateOptions.length && <option value="">Loading…</option>}
+              {dateOptions.map((d) => (
+                <option key={d} value={d}>
+                  {formatIssue(d)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="toolbar">
+          <div className="search">
+            <Search size={16} aria-hidden="true" />
+            <input
+              ref={search}
+              type="search"
+              aria-label="Search"
+              placeholder="Item, NSN, or solicitation"
+              value={filters.search}
+              onChange={(e) => update("search", e.target.value)}
+            />
+            {filters.search && (
+              <button aria-label="Clear search" onClick={() => update("search", "")}>
+                <X size={14} />
+              </button>
+            )}
           </div>
-          <div>
-            <span className="stat-label">
-              Due within 7 days <Clock3 size={18} />
-            </span>
-            <strong>
-              {dueSoon.toLocaleString()}
-              <span className="stat-tag">Time sensitive</span>
-            </strong>
-            <small>{narrowed ? "Matching these filters" : "In this listing"}</small>
-          </div>
-          <div>
-            <span className="stat-label">
-              Saved for review <Bookmark size={18} />
-            </span>
-            <strong>{savedCount}</strong>
-            <small>Watchlist for this issue date</small>
-          </div>
-        </section>
-        )}
-        <section className="workspace">
-          <aside className="filters">
-            <div className="filter-title">
-              <h2>
-                <Filter size={16} /> Refine results
-              </h2>
+          <button className="button filters-button" popoverTarget="filters">
+            <SlidersHorizontal size={16} aria-hidden="true" />
+            Filters{active ? ` (${active})` : ""}
+          </button>
+          <label className="field sort">
+            <span className="sr-only">Sort</span>
+            <select
+              value={sortValue}
+              onChange={(e) => {
+                const [key, dir] = e.target.value.split(":");
+                setSort({ key, dir } as Sort);
+                setPage(1);
+              }}
+            >
+              {sorts.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="button export"
+            onClick={exportCsv}
+            disabled={!filtered.length}
+          >
+            Export
+          </button>
+        </div>
+        <div className="layout">
+          <aside id="filters" className="filters" popover="auto">
+            <div className="sheet-head">
+              <h2>Filters</h2>
               <button
-                className="text-button"
-                onClick={() => {
-                  setFilters(initialFilters);
-                  setPage(1);
-                }}
+                className="link"
+                popoverTarget="filters"
+                popoverTargetAction="hide"
               >
-                Reset
+                Done
               </button>
             </div>
-            <DateMenu
-              label="Issue date"
-              value={listing?.date ? issueToIso(listing.date) : ""}
-              allowed={dateOptions.map(issueToIso)}
-              emptyLabel="Loading dates…"
-              disabled={!dateOptions.length}
-              onChange={(iso) => void choose(isoToIssue(iso))}
-            />
-            <DateMenu
-              label="Quote deadline"
-              value={filters.due}
-              emptyLabel="Any deadline"
-              clearLabel="Any deadline"
-              onChange={(iso) => update("due", iso)}
-            />
-            <div className="divider" />
-            <OptionMenu
-              label="Federal supply class"
-              value={filters.fsc}
-              placeholder="All categories"
-              search
-              options={fscOptions.map((f) => ({
-                value: f,
-                label: `FSC ${f}`,
-              }))}
-              onChange={(fsc) => update("fsc", fsc)}
-            />
-            <OptionMenu
-              label="Set-aside"
-              value={filters.setAside}
-              placeholder="All set-asides"
-              options={setAsideOptions.map(
-                (part) => ({
-                  value: part.label,
-                  label: part.label,
-                  icons: [part.icon],
-                }),
-              )}
-              onChange={(setAside) => update("setAside", setAside)}
-            />
-            <label>
-              Minimum quantity
-              <input
-                type="number"
-                min="0"
-                placeholder="Any quantity"
-                value={filters.quantity}
-                onChange={(e) => update("quantity", e.target.value)}
-              />
-            </label>
-            <div className="divider" />
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={filters.open}
-                onChange={(e) => update("open", e.target.checked)}
-              />{" "}
-              Open RFQs only
-            </label>
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={filters.docs}
-                onChange={(e) => update("docs", e.target.checked)}
-              />{" "}
-              Technical documents available
-            </label>
-            <div className="filter-note">
-              <ShieldCheck size={19} />
-              <p>
-                Go from discovery to diligence.
-                <span>
-                  Review requirements and eligibility in the original DIBBS
-                  package before quoting.
-                </span>
-              </p>
-            </div>
-          </aside>
-          <div className="results">
-            <div className="search-row">
-              <div className="search">
-                <Search size={18} />
+            <div className="group">
+              <label className="row">
+                <span>Due by</span>
                 <input
-                  ref={search}
-                  aria-label="Search opportunities"
-                  placeholder="Search item, NSN, or solicitation number…"
-                  value={filters.search}
-                  onChange={(e) => update("search", e.target.value)}
+                  type="date"
+                  value={filters.due}
+                  onChange={(e) => update("due", e.target.value)}
                 />
-                {filters.search ? (
-                  <button
-                    aria-label="Clear search"
-                    onClick={() => update("search", "")}
-                  >
-                    <X size={15} />
-                  </button>
-                ) : (
-                  <kbd>⌘ K</kbd>
-                )}
-              </div>
+              </label>
+              <label className="row">
+                <span>Supply class</span>
+                <select
+                  value={filters.fsc}
+                  onChange={(e) => update("fsc", e.target.value)}
+                >
+                  <option value="">All</option>
+                  {fscOptions.map((f) => (
+                    <option key={f} value={f}>
+                      FSC {f}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="row">
+                <span>Set-aside</span>
+                <select
+                  value={filters.setAside}
+                  onChange={(e) => update("setAside", e.target.value)}
+                >
+                  <option value="">All</option>
+                  {setAsideOptions.map((part) => (
+                    <option key={part} value={part}>
+                      {part}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="row">
+                <span>Min. quantity</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  placeholder="Any"
+                  value={filters.quantity}
+                  onChange={(e) => update("quantity", e.target.value)}
+                />
+              </label>
             </div>
-            <div className="results-heading">
-              <div>
-                <h2>
-                  {view === "saved"
-                    ? "Saved opportunities"
-                    : "All opportunities"}{" "}
-                  <span>{filtered.length.toLocaleString()}</span>
-                </h2>
-                <p>
-                  {active
-                    ? `${active} active filter${active === 1 ? "" : "s"}`
-                    : listing?.date
-                      ? `Issue date ${listing.date.replaceAll("-", " / ")}`
-                      : "Choose an issue date"}
-                </p>
-              </div>
-              <div className="freshness">
-                <span className="open-tag">
-                  <span className="dot" />
-                  {syncing
-                    ? "Updating"
-                    : listing?.stored
-                      ? "Up to date"
-                      : "DIBBS"}
-                </span>
+            <div className="group">
+              <label className="row">
+                <span>Open RFQs only</span>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={filters.open}
+                  onChange={(e) => update("open", e.target.checked)}
+                />
+              </label>
+              <label className="row">
+                <span>Has tech documents</span>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={filters.docs}
+                  onChange={(e) => update("docs", e.target.checked)}
+                />
+              </label>
+            </div>
+            <button
+              className="link reset"
+              disabled={!active && !filters.open}
+              onClick={() => {
+                setFilters(initialFilters);
+                setPage(1);
+              }}
+            >
+              Reset filters
+            </button>
+          </aside>
+          <section className="results" aria-label="Results">
+            {error && (
+              <div className="notice" role="alert">
+                <div>
+                  <strong>Couldn’t load this date</strong>
+                  <span>{error}</span>
+                </div>
                 <button
                   className="button"
-                  onClick={exportCsv}
-                  disabled={!filtered.length}
-                >
-                  <Download size={16} /> Export CSV
-                </button>
-              </div>
-            </div>
-            {error && (
-              <div className="error" role="alert">
-                <strong>Could not load this date</strong>
-                <span>{error}</span>
-                <button
                   disabled={syncing || !listing?.date}
                   onClick={() => {
                     if (!listing?.date) return;
                     void pull(listing.date, ++run.current, rows.length > 0);
                   }}
                 >
-                  Try again
+                  Try Again
                 </button>
               </div>
             )}
-            <div className="table-scroll">
-              <table>
+            {visible.length > 0 && (
+              <table className="list">
                 <thead>
                   <tr>
-                    <th className="bookmark-cell">
-                      <Bookmark size={14} />
-                      <span className="sr-only">Save</span>
-                    </th>
-                    <SortHeader
-                      label="ITEM / NSN"
-                      column="title"
-                      sort={sort}
-                      onSort={chooseSort}
-                    />
-                    <SortHeader
-                      label="QUANTITY"
-                      column="quantity"
-                      sort={sort}
-                      onSort={chooseSort}
-                    />
-                    <th>SET-ASIDE</th>
-                    <SortHeader
-                      label="TECH DOCS"
-                      column="docs"
-                      sort={sort}
-                      onSort={chooseSort}
-                    />
-                    <th>PDF</th>
-                    <SortHeader
-                      label="RETURN BY"
-                      column="due"
-                      sort={sort}
-                      onSort={chooseSort}
-                    />
+                    <th>Item</th>
+                    <th className="num">Qty</th>
+                    <th>Set-aside</th>
+                    <th>Return by</th>
                     <th>
-                      <span className="sr-only">Details</span>
+                      <span className="sr-only">Actions</span>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {visible.map((r) => {
                     const days = daysLeft(r.due);
-                    const pdf = r.pdf || pdfLink(r.solicitation);
+                    const isSaved = savedSet.has(r.id);
                     return (
-                      <tr
-                        key={r.id}
-                        className={days !== null && days < 0 ? "past" : ""}
-                      >
-                        <td>
+                      <tr key={r.id} className={days !== null && days < 0 ? "past" : ""}>
+                        <td className="item">
+                          <button className="open" onClick={() => show(r)}>
+                            {r.title}
+                          </button>
+                          <span className="meta">
+                            <span className="mono">{r.nsn}</span>
+                            {" · "}
+                            <span className="nowrap">{r.solicitation}</span>
+                            {r.docs ? " · Tech docs" : ""}
+                          </span>
+                        </td>
+                        <td className="num">
+                          {r.quantity?.toLocaleString() ?? "–"}
+                          <span className="unit">qty</span>
+                        </td>
+                        <td className="aside">
+                          <SetAside value={r.setAside} />
+                        </td>
+                        <td className="due">
+                          {formatDate(r.due)}
+                          <span
+                            className={
+                              days !== null && days < 0
+                                ? "late"
+                                : days !== null && days <= 3
+                                  ? "soon"
+                                  : ""
+                            }
+                          >
+                            {dueText(days)}
+                          </span>
+                        </td>
+                        <td className="actions">
                           <button
-                            className={`save ${savedSet.has(r.id) ? "saved" : ""}`}
-                            aria-label={`${savedSet.has(r.id) ? "Unsave" : "Save"} ${r.title}`}
-                            aria-pressed={savedSet.has(r.id)}
+                            className="icon"
+                            aria-label={`${isSaved ? "Remove" : "Save"} ${r.title}`}
+                            aria-pressed={isSaved}
                             onClick={() => toggleSaved(r.id)}
                           >
                             <Bookmark
-                              size={17}
-                              fill={
-                                savedSet.has(r.id) ? "currentColor" : "none"
-                              }
+                              size={18}
+                              fill={isSaved ? "currentColor" : "none"}
                             />
                           </button>
-                        </td>
-                        <td className="item">
-                          <button onClick={() => show(r)}>{r.title}</button>
-                          <span className="mono">
-                            {r.nsn} <em>FSC {r.fsc}</em>
-                          </span>
-                          <small>
-                            {r.solicitation} · PR {r.purchaseRequest}
-                          </small>
-                        </td>
-                        <td>
-                          <strong>{r.quantity?.toLocaleString() ?? "—"}</strong>
-                          <small>{r.unit || "See package for unit"}</small>
-                        </td>
-                        <td>
-                          <SetAsideLabel value={r.setAside} />
-                        </td>
-                        <td>
-                          {r.docs ? (
-                            <span className="docs">
-                              <FileText size={14} /> Available
-                            </span>
-                          ) : (
-                            <span className="muted">
-                              {r.docs === false ? "None listed" : "Unknown"}
-                            </span>
-                          )}
-                        </td>
-                        <td>
-                          {pdf ? (
-                            <a
-                              className="pdf-link"
-                              href={pdf}
-                              target="_blank"
-                              rel="noreferrer"
-                              aria-label={`Open ${r.solicitation} PDF`}
-                            >
-                              <FileText size={14} />
-                            </a>
-                          ) : (
-                            <span className="muted">None</span>
-                          )}
-                        </td>
-                        <td className="due">
-                          <strong>{formatDate(r.due)}</strong>
-                          {days !== null && days < 0 ? (
-                            <span className="badge red">
-                              <Clock3 size={12} aria-hidden="true" />
-                              Past due
-                            </span>
-                          ) : (
-                            <small
-                              className={
-                                days !== null && days <= 3 ? "urgent" : ""
-                              }
-                            >
-                              {days === null
-                                ? "Check source"
-                                : days === 0
-                                  ? "Due today"
-                                  : `${days} days left`}
-                            </small>
-                          )}
-                        </td>
-                        <td>
-                          <a
-                            className="external"
-                            href={r.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            aria-label={`Open ${r.solicitation} on DIBBS`}
-                          >
-                            <ArrowUpRight size={18} />
-                          </a>
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-            </div>
+            )}
             {!visible.length && (
               <div className="empty">
-                <Search size={30} />
-                <h3>
-                  {!ready || (syncing && !rows.length)
-                    ? "Loading this issue date"
-                    : error && !rows.length
-                      ? "This date could not be loaded"
-                      : "No matching opportunities"}
-                </h3>
-                <p>
-                  {!ready || (syncing && !rows.length)
-                    ? "The list will show here as soon as this date is ready."
-                    : "Try a different search, reset the filters, or select another issue date."}
-                </p>
-                {ready && !syncing && (
-                  <button
-                    className="button"
-                    onClick={() => {
-                      setFilters(initialFilters);
-                      setView("all");
-                    }}
-                  >
-                    Clear filters
-                  </button>
+                {!ready || (syncing && !rows.length) ? (
+                  <>
+                    <span className="spinner large" aria-hidden="true" />
+                    <h3>Loading Listing</h3>
+                    <p>RFQs appear here as DIBBS returns them.</p>
+                  </>
+                ) : (
+                  <>
+                    <h3>
+                      {error && !rows.length
+                        ? "No Listing"
+                        : view === "saved" && !saved.length
+                          ? "No Saved RFQs"
+                          : "No Results"}
+                    </h3>
+                    <p>
+                      {view === "saved" && !saved.length
+                        ? "Tap the bookmark on an RFQ to save it here."
+                        : "Try a different search or adjust the filters."}
+                    </p>
+                    {(active > 0 || view === "saved") && (
+                      <button
+                        className="button"
+                        onClick={() => {
+                          setFilters(initialFilters);
+                          setView("all");
+                          setPage(1);
+                        }}
+                      >
+                        Show All
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             )}
-            <div className="pagination">
-              <span>
-                {filtered.length
-                  ? `${(currentPage - 1) * 25 + 1}–${Math.min(currentPage * 25, filtered.length)} of ${filtered.length.toLocaleString()} opportunities`
-                  : "0 opportunities"}
-              </span>
-              <div>
+            {pageCount > 1 && (
+              <nav className="pager" aria-label="Pages">
                 <button
+                  className="icon"
                   aria-label="Previous page"
                   disabled={currentPage === 1}
                   onClick={() => setPage(currentPage - 1)}
                 >
-                  <ChevronLeft size={16} />
+                  <ChevronLeft size={18} />
                 </button>
                 <span>
-                  Page {currentPage} of {pageCount}
+                  {(currentPage - 1) * 25 + 1}–
+                  {Math.min(currentPage * 25, filtered.length)} of{" "}
+                  {filtered.length.toLocaleString()}
                 </span>
                 <button
+                  className="icon"
                   aria-label="Next page"
                   disabled={currentPage === pageCount}
                   onClick={() => setPage(currentPage + 1)}
                 >
-                  <ChevronRight size={16} />
+                  <ChevronRight size={18} />
                 </button>
-              </div>
-            </div>
-          </div>
-        </section>
-        <footer>
-          <span>
-            <Radio size={13} /> Public data from DLA DIBBS{" "}
-            {listing?.fetchedAt &&
-              `· Saved ${new Date(listing.fetchedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`}
-          </span>
-          <span>Built for suppliers. Focused on opportunity.</span>
-        </footer>
+              </nav>
+            )}
+            <p className="footnote">
+              Public data from DLA DIBBS
+              {listing?.fetchedAt &&
+                ` · Updated ${new Date(listing.fetchedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`}
+            </p>
+          </section>
+        </div>
       </main>
       <dialog
         ref={dialog}
+        className="sheet"
+        aria-label="RFQ details"
         onClick={(e) => {
           if (e.target === dialog.current) dialog.current.close();
         }}
       >
         {selected && (
           <>
-            <button
-              className="dialog-close"
-              aria-label="Close details"
-              onClick={() => dialog.current?.close()}
-            >
-              <X size={20} />
-            </button>
-            <div className="eyebrow">SOLICITATION DETAILS</div>
+            <div className="sheet-head">
+              <button
+                className="link"
+                onClick={() => toggleSaved(selected.id)}
+              >
+                {savedSet.has(selected.id) ? "Saved" : "Save"}
+              </button>
+              <button
+                className="link strong"
+                onClick={() => dialog.current?.close()}
+              >
+                Done
+              </button>
+            </div>
             <h2>{selected.title}</h2>
-            <p className="mono">{selected.nsn}</p>
-            <dl>
-              {[
-                ["Solicitation", selected.solicitation],
-                ["Purchase request", selected.purchaseRequest],
-                ["Supply class", selected.fsc],
+            <p className="meta mono">{selected.nsn}</p>
+            <dl className="group">
+              {(
                 [
-                  "Quantity",
-                  selected.quantity?.toLocaleString() ?? "Not provided",
-                ],
-                ["Set-aside", selected.setAside],
-                ["Issued", formatDate(selected.issued)],
-                ["Return by", formatDate(selected.due)],
-                ["Status", selected.status],
-                [
-                  "Technical documents",
-                  selected.docs
-                    ? "Available"
-                    : selected.docs === false
-                      ? "None listed"
-                      : "Unknown",
-                ],
-              ].map(([k, v]) => (
-                <div key={k}>
+                  ["Solicitation", selected.solicitation],
+                  ["Purchase request", selected.purchaseRequest],
+                  ["Supply class", `FSC ${selected.fsc}`],
+                  ["Quantity", selected.quantity?.toLocaleString() ?? "Not provided"],
+                  ["Set-aside", selected.setAside],
+                  ["Issued", formatDate(selected.issued)],
+                  ["Return by", `${formatDate(selected.due)} · ${dueText(daysLeft(selected.due))}`],
+                  ["Status", selected.status],
+                  [
+                    "Tech documents",
+                    selected.docs ? "Available" : selected.docs === false ? "None listed" : "Unknown",
+                  ],
+                ] as const
+              ).map(([k, v]) => (
+                <div className="row" key={k}>
                   <dt>{k}</dt>
-                  <dd>
-                    {k === "Set-aside" ? (
-                      <SetAsideLabel value={v} />
-                    ) : k === "Return by" &&
-                      (daysLeft(selected.due) ?? 0) < 0 ? (
-                      <span className="past-date">
-                        {v}
-                        <span className="badge red">
-                          <Clock3 size={12} aria-hidden="true" />
-                          Past due
-                        </span>
-                      </span>
-                    ) : (
-                      v
-                    )}
-                  </dd>
+                  <dd>{v}</dd>
                 </div>
               ))}
             </dl>
-            <p className="detail-note">
-              Confirm the unit of issue, delivery schedule, specifications, and
-              eligibility in the original solicitation.
+            <p className="footnote">
+              Confirm unit of issue, delivery, specifications, and eligibility
+              in the original solicitation.
             </p>
-            <div className="detail-actions">
-              {(selected.pdf || pdfLink(selected.solicitation)) && (
-                <a
-                  className="button"
-                  href={selected.pdf || pdfLink(selected.solicitation) || undefined}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open solicitation PDF <FileText size={16} />
-                </a>
-              )}
+            <div className="sheet-actions">
               <a
                 className="button primary"
                 href={selected.url}
                 target="_blank"
                 rel="noreferrer"
               >
-                View original DIBBS package <ArrowUpRight size={16} />
+                View on DIBBS
               </a>
+              {pdf && (
+                <a className="button" href={pdf} target="_blank" rel="noreferrer">
+                  Open PDF
+                </a>
+              )}
             </div>
           </>
         )}
