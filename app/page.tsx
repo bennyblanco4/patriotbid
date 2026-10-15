@@ -3,13 +3,27 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   Bookmark,
+  Building2,
+  CalendarDays,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Clock3,
   Download,
+  FileText,
+  Filter,
+  Heart,
+  MapPin,
+  Medal,
+  PackageOpen,
+  Radio,
   Search,
   ShieldCheck,
   SlidersHorizontal,
+  Unlock,
+  Users,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import {
   daysLeft,
@@ -27,42 +41,54 @@ type Listing = {
   fetchedAt: string | null;
   stored: boolean;
 };
+function setAsideName(value: string) {
+  return value.replace(/\s+set-aside$/i, "").trim();
+}
 // Only a handful of distinct set-aside strings exist, but this runs per row
 // for filtering and rendering.
-const setAsideCache = new Map<string, string[]>();
-function setAsideParts(value: string): string[] {
+const setAsideCache = new Map<string, { label: string; icon: LucideIcon }[]>();
+function setAsideParts(value: string): { label: string; icon: LucideIcon }[] {
   let parts = setAsideCache.get(value);
   if (!parts) {
-    const text = value.toLowerCase();
-    parts = [];
-    if (text.includes("veteran")) parts.push("Veteran");
-    if (text.includes("woman")) parts.push("Woman owned");
-    if (text.includes("hubzone")) parts.push("HUBZone");
-    if (/8\s*\(?a\)?/.test(text)) parts.push("8(a)");
-    if (text.includes("small business")) parts.push("Small business");
-    if (text.includes("unrestricted")) parts.push("Unrestricted");
+    parts = readSetAside(value);
     if (setAsideCache.size < 500) setAsideCache.set(value, parts);
   }
   return parts;
 }
-function SetAside({ value }: { value: string }) {
+function readSetAside(value: string): { label: string; icon: LucideIcon }[] {
+  const text = value.toLowerCase();
+  const parts: { label: string; icon: LucideIcon }[] = [];
+  if (text.includes("veteran")) parts.push({ label: "Veteran", icon: Medal });
+  if (text.includes("woman"))
+    parts.push({ label: "Woman owned", icon: Heart });
+  if (text.includes("hubzone")) parts.push({ label: "HUBZone", icon: MapPin });
+  if (/8\s*\(?a\)?/.test(text)) parts.push({ label: "8(a)", icon: Building2 });
+  if (text.includes("small business"))
+    parts.push({ label: "Small business", icon: Users });
+  if (text.includes("unrestricted"))
+    parts.push({ label: "Unrestricted", icon: Unlock });
+  return parts;
+}
+function SetAsideLabel({ value }: { value: string }) {
   const parts = setAsideParts(value);
-  if (!parts.length)
-    return (
-      <span className="tag">
-        {value.replace(/\s+set-aside$/i, "").trim() || "Not specified"}
-      </span>
-    );
+  const boxes =
+    parts.length > 0
+      ? parts
+      : [{ label: setAsideName(value) || "Not specified", icon: null }];
   return (
-    <span className="tags">
-      {parts.map((part) => (
-        <span
-          key={part}
-          className={part === "Unrestricted" ? "tag" : "tag tint"}
-        >
-          {part}
-        </span>
-      ))}
+    <span className="set-asides">
+      {boxes.map((part) => {
+        const Icon = part.icon;
+        return (
+          <span
+            key={part.label}
+            className={`badge ${part.label === "Unrestricted" ? "neutral" : "blue"}`}
+          >
+            {Icon ? <Icon size={12} aria-hidden="true" /> : null}
+            {part.label}
+          </span>
+        );
+      })}
     </span>
   );
 }
@@ -73,14 +99,279 @@ const formatDate = (value: string | null) =>
         day: "numeric",
       })
     : "Not provided";
-function formatIssue(value: string) {
-  const [month, day, year] = value.split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString("en-US", {
-    weekday: "short",
+const formatFullDate = (value: string) =>
+  new Date(value + "T12:00:00").toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
+function issueToIso(value: string) {
+  const [month, day, year] = value.split("-");
+  return `${year}-${month}-${day}`;
+}
+function isoToIssue(value: string) {
+  const [year, month, day] = value.split("-");
+  return `${month}-${day}-${year}`;
+}
+function monthStart(value: string) {
+  const [year, month] = value.split("-").map(Number);
+  return new Date(year, month - 1, 1);
+}
+function toIso(date: Date) {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+function DateMenu({
+  label,
+  value,
+  onChange,
+  allowed,
+  emptyLabel,
+  clearLabel,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  onChange: (iso: string) => void;
+  allowed?: string[];
+  emptyLabel?: string;
+  clearLabel?: string;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const [cursor, setCursor] = useState(() =>
+    value ? monthStart(value) : new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+  );
+  useEffect(() => {
+    if (open && value) setCursor(monthStart(value));
+  }, [open, value]);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const key = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", key);
+    };
+  }, [open]);
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const leading = new Date(year, month, 1).getDay();
+  const days = new Date(year, month + 1, 0).getDate();
+  const allowedSet = allowed ? new Set(allowed) : null;
+  return (
+    <div className="date-field" ref={root}>
+      <span>{label}</span>
+      <button
+        type="button"
+        className="date-button"
+        aria-label={label}
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span>{value ? formatFullDate(value) : emptyLabel}</span>
+        <CalendarDays size={14} />
+      </button>
+      {open && (
+        <div className="calendar" role="dialog" aria-label={`${label} calendar`}>
+          <div className="calendar-head">
+            <button
+              type="button"
+              aria-label="Previous month"
+              onClick={() => setCursor(new Date(year, month - 1, 1))}
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <strong>
+              {cursor.toLocaleDateString("en-US", {
+                month: "long",
+                year: "numeric",
+              })}
+            </strong>
+            <button
+              type="button"
+              aria-label="Next month"
+              onClick={() => setCursor(new Date(year, month + 1, 1))}
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
+          <div className="calendar-week">
+            {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
+              <span key={day}>{day}</span>
+            ))}
+          </div>
+          <div className="calendar-grid">
+            {Array.from({ length: leading }, (_, index) => (
+              <span key={`empty-${index}`} />
+            ))}
+            {Array.from({ length: days }, (_, index) => {
+              const iso = toIso(new Date(year, month, index + 1));
+              const blocked = allowedSet ? !allowedSet.has(iso) : false;
+              return (
+                <button
+                  type="button"
+                  key={iso}
+                  disabled={blocked}
+                  className={iso === value ? "selected" : ""}
+                  onClick={() => {
+                    onChange(iso);
+                    setOpen(false);
+                  }}
+                >
+                  {index + 1}
+                </button>
+              );
+            })}
+          </div>
+          {clearLabel && (
+            <button
+              type="button"
+              className="calendar-clear"
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+              }}
+            >
+              {clearLabel}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+function OptionIcons({ icons }: { icons?: LucideIcon[] }) {
+  if (!icons?.length) return null;
+  return (
+    <span className="menu-icons">
+      {icons.map((Icon, index) => (
+        <Icon key={`${index}`} size={12} aria-hidden="true" />
+      ))}
+    </span>
+  );
+}
+function OptionMenu({
+  label,
+  value,
+  placeholder,
+  options,
+  onChange,
+  search,
+  hideLabel,
+  required,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  options: { value: string; label: string; icons?: LucideIcon[] }[];
+  onChange: (value: string) => void;
+  search?: boolean;
+  hideLabel?: boolean;
+  required?: boolean;
+}) {
+  const [open, setOpen] = useState(false),
+    [query, setQuery] = useState(""),
+    root = useRef<HTMLDivElement>(null),
+    searchBox = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    setQuery("");
+    const frame = requestAnimationFrame(() => searchBox.current?.focus());
+    const close = (event: MouseEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const key = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", key);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", key);
+    };
+  }, [open]);
+  const selected = options.find((option) => option.value === value);
+  const needle = query.trim().toLowerCase();
+  const shown = options.filter(
+    (option) =>
+      !needle ||
+      option.label.toLowerCase().includes(needle) ||
+      option.value.toLowerCase().includes(needle),
+  );
+  return (
+    <div className="date-field" ref={root}>
+      <span className={hideLabel ? "sr-only" : undefined}>{label}</span>
+      <button
+        type="button"
+        className="date-button"
+        aria-label={label}
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span className="menu-value">
+          {selected ? <OptionIcons icons={selected.icons} /> : null}
+          <span>{selected?.label || placeholder}</span>
+        </span>
+        <ChevronDown size={14} />
+      </button>
+      {open && (
+        <div className="option-menu" role="listbox" aria-label={label}>
+          {search && (
+            <input
+              ref={searchBox}
+              className="menu-search"
+              placeholder="Search"
+              value={query}
+              aria-label={`Search ${label}`}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          )}
+          {!required && (
+          <button
+            type="button"
+            className={value ? "" : "selected"}
+            onClick={() => {
+              onChange("");
+              setOpen(false);
+            }}
+          >
+            {placeholder}
+          </button>
+          )}
+          <div className="option-list">
+            {shown.map((option) => (
+              <button
+                type="button"
+                key={option.value}
+                role="option"
+                aria-selected={option.value === value}
+                className={option.value === value ? "selected" : ""}
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+              >
+                <OptionIcons icons={option.icons} />
+                <span>{option.label}</span>
+              </button>
+            ))}
+            {!shown.length && <p className="menu-empty">No matches</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 function dueText(days: number | null) {
   if (days === null) return "Check source";
@@ -333,7 +624,8 @@ export default function Home() {
     return filterRows(rows, { ...f, setAside: "" }, today)
       .filter(
         (r) =>
-          (!f.setAside || setAsideParts(r.setAside).includes(f.setAside)) &&
+          (!f.setAside ||
+            setAsideParts(r.setAside).some((part) => part.label === f.setAside)) &&
           (view !== "saved" || savedSet.has(r.id)),
       )
       .sort((a, b) => compareRows(a, b, sort, today));
@@ -476,26 +768,23 @@ export default function Home() {
               )}
             </p>
           </div>
-          <label className="date-pick">
-            <span>Issue date</span>
-            <select
-              value={listing?.date || ""}
+          <div className="date-pick">
+            <DateMenu
+              label="Issue date"
+              value={listing?.date ? issueToIso(listing.date) : ""}
+              allowed={dateOptions.map(issueToIso)}
+              emptyLabel="Loading dates…"
               disabled={!dateOptions.length}
-              onChange={(e) => void choose(e.target.value)}
-            >
-              {!dateOptions.length && <option value="">Loading…</option>}
-              {dateOptions.map((d) => (
-                <option key={d} value={d}>
-                  {formatIssue(d)}
-                </option>
-              ))}
-            </select>
-          </label>
+              onChange={(iso) => void choose(isoToIssue(iso))}
+            />
+          </div>
         </section>
         {view !== "saved" && (
           <section className="stats" aria-label="Listing overview">
             <div>
-              <span>Opportunities</span>
+              <span>
+                Opportunities <PackageOpen size={16} aria-hidden="true" />
+              </span>
               <strong>{filtered.length.toLocaleString()}</strong>
               <small>
                 {narrowed && rows.length
@@ -504,14 +793,18 @@ export default function Home() {
               </small>
             </div>
             <div>
-              <span>Due in 7 days</span>
+              <span>
+                Due in 7 days <Clock3 size={16} aria-hidden="true" />
+              </span>
               <strong className={dueSoon ? "warn" : ""}>
                 {dueSoon.toLocaleString()}
               </strong>
               <small>{narrowed ? "Matching these filters" : "Time sensitive"}</small>
             </div>
             <div>
-              <span>Saved</span>
+              <span>
+                Saved <Bookmark size={16} aria-hidden="true" />
+              </span>
               <strong>{savedCount}</strong>
               <small>Watchlist for this issue date</small>
             </div>
@@ -520,7 +813,9 @@ export default function Home() {
         <div className="layout">
           <aside id="filters" className="filters card" popover="auto">
             <div className="filter-title">
-              <h2>Filters</h2>
+              <h2>
+                <Filter size={14} aria-hidden="true" /> Filters
+              </h2>
               <button
                 className="text-button"
                 disabled={!active && !filters.open}
@@ -539,42 +834,32 @@ export default function Home() {
                 Done
               </button>
             </div>
-            <label className="field">
-              <span>Quote deadline</span>
-              <input
-                type="date"
-                value={filters.due}
-                onChange={(e) => update("due", e.target.value)}
-              />
-            </label>
-            <label className="field">
-              <span>Federal supply class</span>
-              <select
-                value={filters.fsc}
-                onChange={(e) => update("fsc", e.target.value)}
-              >
-                <option value="">All categories</option>
-                {fscOptions.map((f) => (
-                  <option key={f} value={f}>
-                    FSC {f}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>Set-aside</span>
-              <select
-                value={filters.setAside}
-                onChange={(e) => update("setAside", e.target.value)}
-              >
-                <option value="">All set-asides</option>
-                {setAsideOptions.map((part) => (
-                  <option key={part} value={part}>
-                    {part}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <DateMenu
+              label="Quote deadline"
+              value={filters.due}
+              emptyLabel="Any deadline"
+              clearLabel="Any deadline"
+              onChange={(iso) => update("due", iso)}
+            />
+            <OptionMenu
+              label="Federal supply class"
+              value={filters.fsc}
+              placeholder="All categories"
+              search
+              options={fscOptions.map((f) => ({ value: f, label: `FSC ${f}` }))}
+              onChange={(fsc) => update("fsc", fsc)}
+            />
+            <OptionMenu
+              label="Set-aside"
+              value={filters.setAside}
+              placeholder="All set-asides"
+              options={setAsideOptions.map((part) => ({
+                value: part.label,
+                label: part.label,
+                icons: [part.icon],
+              }))}
+              onChange={(setAside) => update("setAside", setAside)}
+            />
             <label className="field">
               <span>Minimum quantity</span>
               <input
@@ -628,22 +913,21 @@ export default function Home() {
                 <SlidersHorizontal size={14} aria-hidden="true" />
                 Filters{active ? ` (${active})` : ""}
               </button>
-              <select
-                className="sort"
-                aria-label="Sort"
-                value={sortValue}
-                onChange={(e) => {
-                  const [key, dir] = e.target.value.split(":");
-                  setSort({ key, dir } as Sort);
-                  setPage(1);
-                }}
-              >
-                {sorts.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
+              <div className="sort">
+                <OptionMenu
+                  label="Sort"
+                  hideLabel
+                  required
+                  value={sortValue}
+                  placeholder="Sort"
+                  options={sorts}
+                  onChange={(value) => {
+                    const [key, dir] = value.split(":");
+                    setSort({ key, dir } as Sort);
+                    setPage(1);
+                  }}
+                />
+              </div>
               <button
                 className="button export"
                 onClick={exportCsv}
@@ -704,22 +988,25 @@ export default function Home() {
                           <span className="unit"> qty</span>
                         </td>
                         <td className="aside">
-                          <SetAside value={r.setAside} />
-                          {r.docs && <span className="tag docs">Tech docs</span>}
+                          <SetAsideLabel value={r.setAside} />
+                          {r.docs && (
+                            <span className="badge docs">
+                              <FileText size={12} aria-hidden="true" />
+                              <span className="docs-label">Tech docs</span>
+                            </span>
+                          )}
                         </td>
                         <td className="due">
                           <strong>{formatDate(r.due)}</strong>
-                          <span
-                            className={
-                              days !== null && days < 0
-                                ? "late"
-                                : days !== null && days <= 3
-                                  ? "soon"
-                                  : ""
-                            }
-                          >
-                            {dueText(days)}
-                          </span>
+                          {days !== null && days < 0 ? (
+                            <span className="badge red">
+                              <Clock3 size={11} aria-hidden="true" /> Past due
+                            </span>
+                          ) : (
+                            <span className={days !== null && days <= 3 ? "soon" : ""}>
+                              {dueText(days)}
+                            </span>
+                          )}
                         </td>
                         <td className="actions">
                           <button
@@ -806,7 +1093,7 @@ export default function Home() {
           </section>
         </div>
         <footer>
-          Public data from DLA DIBBS
+          <Radio size={12} aria-hidden="true" /> Public data from DLA DIBBS
           {listing?.fetchedAt &&
             ` · Saved ${new Date(listing.fetchedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`}
         </footer>

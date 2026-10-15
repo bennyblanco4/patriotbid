@@ -75,7 +75,7 @@ p {
   white-space: nowrap;
 }
 .sr-only,
-.date-pick > span {
+.date-pick .date-field > span {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -225,8 +225,11 @@ select {
   background-position: right 10px center;
   cursor: pointer;
 }
-.date-pick select {
-  min-width: 190px;
+.date-pick .date-field {
+  min-width: 210px;
+  margin: 0;
+}
+.date-pick .date-button {
   height: 36px;
   font-weight: 500;
 }
@@ -270,8 +273,14 @@ select {
   padding: 16px 18px;
 }
 .stats span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   color: #647084;
   font-size: 12px;
+}
+.stats span svg {
+  color: #97a4b8;
 }
 .stats strong {
   display: block;
@@ -306,6 +315,9 @@ select {
   margin-bottom: 16px;
 }
 .filter-title h2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-right: auto;
   font-size: 13px;
   font-weight: 600;
@@ -344,7 +356,7 @@ select {
 
 /* Results */
 .results {
-  overflow: hidden;
+  min-width: 0;
 }
 .toolbar {
   display: flex;
@@ -570,6 +582,10 @@ select {
   color: var(--ink-2);
 }
 footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   margin-top: 18px;
   color: var(--faint);
   font-size: 11px;
@@ -809,6 +825,9 @@ footer {
     white-space: nowrap;
     text-overflow: ellipsis;
   }
+  .stats span svg {
+    display: none;
+  }
   .stats small {
     display: none;
   }
@@ -821,7 +840,21 @@ footer {
   }
   .toolbar .sort {
     flex: 1;
+    width: auto;
     min-width: 0;
+  }
+  .date-button {
+    height: 40px;
+    font-size: 14px;
+  }
+  .menu-search {
+    font-size: 16px;
+    height: 38px;
+  }
+  .option-menu button,
+  .calendar-grid button {
+    min-height: 36px;
+    font-size: 14px;
   }
   .export {
     width: 40px;
@@ -894,17 +927,36 @@ footer {
   }
   .list .aside {
     grid-area: aside;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+  .list .aside .badge.docs {
+    margin: 0;
+    padding: 3px 5px;
+  }
+  .docs-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
   .list .due {
     grid-area: due;
     text-align: right;
   }
   /* One line on phones: "Oct 15 · 1 day left" */
-  .list .due span {
+  .list .due > span {
     display: inline;
     margin: 0;
   }
-  .list .due span::before {
+  .list .due .badge {
+    display: inline-flex;
+    margin-left: 6px;
+  }
+  .list .due > span:not(.badge)::before {
     content: " · ";
     color: var(--faint);
   }
@@ -959,3 +1011,304 @@ footer {
     padding: 0 10px;
   }
 }
+
+/* Custom dropdowns and calendar */
+.date-field {
+  position: relative;
+  display: block;
+  margin-bottom: 14px;
+}
+.date-field > span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.date-field:has(.calendar),
+.date-field:has(.option-menu) {
+  z-index: 40;
+}
+.date-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--field);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 12px;
+  text-align: left;
+}
+.date-button[aria-expanded="true"] {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+.date-button > svg {
+  flex: none;
+  color: #8b97a8;
+}
+.date-button[aria-expanded="true"] .lucide-chevron-down {
+  transform: rotate(180deg);
+}
+.menu-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.menu-value > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.menu-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  color: #4676ba;
+}
+.option-menu,
+.calendar {
+  position: absolute;
+  z-index: 30;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px;
+  border: 1px solid var(--field);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(24, 37, 59, 0.16);
+  transform-origin: top center;
+  animation: menu-in 0.14s ease-out;
+}
+.calendar {
+  min-width: 220px;
+  padding: 10px;
+}
+.sort {
+  width: 170px;
+}
+.sort .date-field {
+  margin: 0;
+}
+.sort .option-menu {
+  left: auto;
+  right: 0;
+  min-width: 180px;
+}
+.menu-search {
+  display: block;
+  width: 100%;
+  height: 30px;
+  margin-bottom: 4px;
+  padding: 0 8px;
+  border: 1px solid var(--field);
+  border-radius: 5px;
+  font-size: 12px;
+  outline: 0;
+}
+.menu-search:focus {
+  border-color: var(--blue);
+}
+.option-list {
+  max-height: 240px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.option-menu button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 8px;
+  border-radius: 5px;
+  text-align: left;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #243044;
+}
+.option-menu button.selected {
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-weight: 500;
+}
+.menu-empty {
+  margin: 8px 6px;
+  color: var(--faint);
+  font-size: 11px;
+}
+.calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.calendar-head strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+.calendar-head button,
+.calendar-clear {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 5px;
+  color: #4676ba;
+}
+.calendar-week,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  text-align: center;
+}
+.calendar-week span {
+  padding: 4px 0;
+  color: var(--faint);
+  font-size: 10px;
+}
+.calendar-grid button {
+  height: 28px;
+  border-radius: 5px;
+  color: #243044;
+  font-size: 12px;
+}
+.calendar-grid button:disabled {
+  color: #d3d9e2;
+  opacity: 1;
+}
+.calendar-grid button.selected {
+  background: var(--blue);
+  color: #fff;
+}
+.calendar-clear {
+  justify-content: center;
+  width: 100%;
+  height: 30px;
+  margin-top: 6px;
+  font-size: 11px;
+}
+
+/* Badges */
+.set-asides {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  vertical-align: top;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.badge svg {
+  flex: none;
+}
+.neutral {
+  background: #f7f8fa;
+  color: #7e8797;
+  border: 1px solid #e9edf2;
+}
+.blue {
+  background: #eff5ff;
+  color: #4676ba;
+  border: 1px solid #dfeafa;
+}
+.red {
+  background: #fdf1f0;
+  color: #b8483e;
+  border: 1px solid #f6dcd9;
+}
+.badge.docs {
+  margin: 4px 0 0 4px;
+  background: #effaf4;
+  color: #3f7a58;
+  border: 1px solid #d9efe2;
+}
+.due .badge {
+  margin-top: 3px;
+}
+
+/* Light motion */
+@media (prefers-reduced-motion: no-preference) {
+  .button,
+  .page-button,
+  .date-button,
+  .search,
+  .topbar nav button,
+  .option-menu button,
+  .calendar-grid button,
+  .text-button {
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+  .list tbody tr {
+    transition: background-color 0.12s ease;
+  }
+  .date-button svg {
+    transition: transform 0.15s ease;
+  }
+  .save {
+    transition: color 0.15s ease;
+  }
+  .save svg {
+    transition: transform 0.12s ease;
+  }
+  .save:active svg {
+    transform: scale(0.85);
+  }
+  .save.saved svg {
+    animation: pop 0.24s ease-out;
+  }
+  .stats > div,
+  .card {
+    animation: rise 0.28s ease-out backwards;
+  }
+}
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+@keyframes pop {
+  50% {
+    transform: scale(1.25);
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@media (hover: hover) {
+  .option-menu button:not(.selected):hover,
+  .calendar-grid button:not(:disabled):not(.selected):hover,
+  .calendar-head button:hover,
+  .calendar-clear:hover {
+    background: #eff5ff;
+  }
+  .date-button:hover {
+    border-color: #c9d3df;
+  }
+  .topbar nav button:not(.active):hover {
+    color: var(--ink);
+  }
+}
+
