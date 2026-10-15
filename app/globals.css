@@ -435,7 +435,10 @@ select {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+/* Positioned so absolutely placed children, like the header's screen-reader
+   label, stay inside the scroller instead of widening the page on phones. */
 .table-scroll {
+  position: relative;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
