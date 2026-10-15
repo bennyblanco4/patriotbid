@@ -921,6 +921,10 @@ footer {
   .open {
     font-size: 14px;
   }
+  /* NSN and solicitation live in the details popup on phones */
+  .list .meta {
+    display: none;
+  }
   .list .category {
     grid-area: category;
     justify-self: end;
