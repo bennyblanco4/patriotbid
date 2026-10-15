@@ -1349,3 +1349,136 @@ footer {
   }
 }
 
+
+/* Part pictures: verified photo or supply group tile */
+.item-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+.item-wrap > div {
+  min-width: 0;
+}
+.thumb {
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dfeafa;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #f3f7ff, #e8f0ff);
+  color: #4676ba;
+  overflow: hidden;
+}
+.thumb.photo {
+  border-color: var(--line);
+  background: #fff;
+}
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.media {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 40px 18px 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f7f9fc;
+}
+.media figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 12px;
+}
+.media figcaption > span {
+  color: var(--muted);
+}
+.media:has(img) {
+  flex-direction: column;
+  align-items: stretch;
+  margin-right: 0;
+  margin-top: 28px;
+  background: #fff;
+}
+.media > img {
+  width: 100%;
+  height: 200px;
+  object-fit: contain;
+}
+.media:has(img) figcaption {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  color: #3f7a58;
+}
+.media:has(img) figcaption a {
+  color: var(--blue);
+}
+.media.checking {
+  background: linear-gradient(100deg, #f7f9fc 30%, #eef3fb 50%, #f7f9fc 70%);
+  background-size: 300% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+.sources {
+  margin: 0 0 16px;
+}
+.sources h3 {
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.sources ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sources li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.sources li + li {
+  margin-top: 6px;
+}
+.sources li span {
+  color: var(--muted);
+}
+.sources .note {
+  margin: 0;
+}
+.skeleton {
+  display: block;
+  height: 38px;
+  margin-bottom: 6px;
+  border-radius: 8px;
+  background: linear-gradient(100deg, #f1f4f8 30%, #e7ecf3 50%, #f1f4f8 70%);
+  background-size: 300% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+.skeleton.short {
+  width: 70%;
+}
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+@media (max-width: 760px) {
+  .item-wrap .thumb {
+    width: 36px !important;
+    height: 36px !important;
+  }
+}

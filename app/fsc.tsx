@@ -1,0 +1,199 @@
+import {
+  Anchor,
+  Armchair,
+  Atom,
+  Bolt,
+  BookOpen,
+  Box,
+  BrickWall,
+  Cable,
+  Camera,
+  Car,
+  CircleDot,
+  Cog,
+  CookingPot,
+  Cpu,
+  Crosshair,
+  Droplet,
+  Droplets,
+  Dumbbell,
+  Factory,
+  Fan,
+  FireExtinguisher,
+  FlaskConical,
+  Flame,
+  Forklift,
+  Fuel,
+  Gauge,
+  Gem,
+  GraduationCap,
+  Hammer,
+  HardHat,
+  Lamp,
+  Layers,
+  Lightbulb,
+  Link,
+  Microscope,
+  Monitor,
+  Mountain,
+  Music,
+  Package,
+  Paintbrush,
+  Paperclip,
+  PawPrint,
+  Plane,
+  PlaneTakeoff,
+  Printer,
+  Radio,
+  Rocket,
+  Ruler,
+  Satellite,
+  Ship,
+  Shirt,
+  ShowerHead,
+  Siren,
+  SprayCan,
+  Sprout,
+  Stethoscope,
+  Target,
+  Tent,
+  Tractor,
+  TrainFront,
+  TreePine,
+  Utensils,
+  Warehouse,
+  WashingMachine,
+  Wheat,
+  Wrench,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
+
+// Federal supply groups (first two digits of the FSC), shortened names.
+const groups: Record<string, [string, LucideIcon]> = {
+  "10": ["Weapons", Crosshair],
+  "11": ["Nuclear ordnance", Atom],
+  "12": ["Fire control", Target],
+  "13": ["Ammunition", Box],
+  "14": ["Guided missiles", Rocket],
+  "15": ["Aircraft", Plane],
+  "16": ["Aircraft components", Plane],
+  "17": ["Aircraft ground equipment", PlaneTakeoff],
+  "18": ["Space vehicles", Satellite],
+  "19": ["Ships and boats", Ship],
+  "20": ["Ship equipment", Anchor],
+  "22": ["Railway equipment", TrainFront],
+  "23": ["Vehicles", Car],
+  "24": ["Tractors", Tractor],
+  "25": ["Vehicle components", Car],
+  "26": ["Tires and tubes", CircleDot],
+  "28": ["Engines and turbines", Cog],
+  "29": ["Engine accessories", Cog],
+  "30": ["Power transmission", Cog],
+  "31": ["Bearings", CircleDot],
+  "32": ["Woodworking machinery", Hammer],
+  "34": ["Metalworking machinery", Hammer],
+  "35": ["Service equipment", WashingMachine],
+  "36": ["Industrial machinery", Factory],
+  "37": ["Agricultural machinery", Wheat],
+  "38": ["Construction equipment", HardHat],
+  "39": ["Materials handling", Forklift],
+  "40": ["Rope, cable, chain", Link],
+  "41": ["Refrigeration and air", Fan],
+  "42": ["Firefighting and safety", FireExtinguisher],
+  "43": ["Pumps and compressors", Gauge],
+  "44": ["Furnaces and dryers", Flame],
+  "45": ["Plumbing and heating", ShowerHead],
+  "46": ["Water purification", Droplets],
+  "47": ["Pipe, tubing, hose", Cable],
+  "48": ["Valves", Gauge],
+  "49": ["Maintenance equipment", Wrench],
+  "51": ["Hand tools", Wrench],
+  "52": ["Measuring tools", Ruler],
+  "53": ["Hardware", Bolt],
+  "54": ["Prefab structures", Warehouse],
+  "55": ["Lumber and millwork", TreePine],
+  "56": ["Construction materials", BrickWall],
+  "58": ["Communications", Radio],
+  "59": ["Electrical components", Cpu],
+  "60": ["Fiber optics", Cable],
+  "61": ["Electric wire and power", Zap],
+  "62": ["Lighting", Lightbulb],
+  "63": ["Alarms and signals", Siren],
+  "65": ["Medical", Stethoscope],
+  "66": ["Instruments and lab", Microscope],
+  "67": ["Photographic", Camera],
+  "68": ["Chemicals", FlaskConical],
+  "69": ["Training aids", GraduationCap],
+  "70": ["IT equipment", Monitor],
+  "71": ["Furniture", Armchair],
+  "72": ["Household furnishings", Lamp],
+  "73": ["Food preparation", CookingPot],
+  "74": ["Office machines", Printer],
+  "75": ["Office supplies", Paperclip],
+  "76": ["Books and maps", BookOpen],
+  "77": ["Musical instruments", Music],
+  "78": ["Recreational", Dumbbell],
+  "79": ["Cleaning supplies", SprayCan],
+  "80": ["Brushes and paints", Paintbrush],
+  "81": ["Containers and packaging", Package],
+  "83": ["Textiles and tents", Tent],
+  "84": ["Clothing", Shirt],
+  "85": ["Toiletries", Droplet],
+  "87": ["Agricultural supplies", Sprout],
+  "88": ["Live animals", PawPrint],
+  "89": ["Subsistence", Utensils],
+  "91": ["Fuels and lubricants", Fuel],
+  "93": ["Nonmetal fabricated", Layers],
+  "94": ["Nonmetal crude", Mountain],
+  "95": ["Metal bars and sheets", Layers],
+  "96": ["Ores and minerals", Gem],
+};
+
+export function supplyGroup(fsc: string) {
+  const [label, icon] = groups[fsc.slice(0, 2)] ?? ["Other supplies", Package];
+  return { label, icon };
+}
+
+export type Photo = {
+  url: string;
+  productUrl: string;
+  provider: string;
+  partNumber: string;
+  manufacturer: string;
+};
+
+// A verified photo when one exists, otherwise the supply group's picture.
+export function PartThumb({
+  fsc,
+  photo,
+  size = 40,
+}: {
+  fsc: string;
+  photo?: Photo | null;
+  size?: number;
+}) {
+  const group = supplyGroup(fsc);
+  if (photo)
+    return (
+      <span className="thumb photo" style={{ width: size, height: size }}>
+        <img
+          src={photo.url}
+          alt={`${photo.manufacturer} ${photo.partNumber}`}
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+        />
+      </span>
+    );
+  const Icon = group.icon;
+  return (
+    <span
+      className="thumb"
+      style={{ width: size, height: size }}
+      title={`${group.label} (category picture)`}
+    >
+      <Icon size={Math.round(size * 0.45)} aria-hidden="true" />
+    </span>
+  );
+}

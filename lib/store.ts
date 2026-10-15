@@ -43,6 +43,11 @@ function sqlite() {
         issue_date TEXT PRIMARY KEY,
         position INTEGER NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS parts (
+        nsn TEXT PRIMARY KEY,
+        data_json TEXT NOT NULL,
+        checked_at TEXT NOT NULL
+      );
     `);
     globalDb.rfqDb = db;
   }
@@ -75,6 +80,11 @@ async function ready() {
       CREATE TABLE IF NOT EXISTS issue_dates (
         issue_date TEXT PRIMARY KEY,
         position INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS parts (
+        nsn TEXT PRIMARY KEY,
+        data_json TEXT NOT NULL,
+        checked_at TEXT NOT NULL
       );
     `).then(() => undefined);
   }
@@ -234,3 +244,61 @@ export async function savedPastDay(
   if (!day || day.total < 1 || day.count < day.total) return null;
   return day;
 }
+
+// Approved sources and verified photos per NSN, looked up once.
+export async function loadPart(nsn: string) {
+  if (!usePostgres()) {
+    const row = sqlite()
+      .prepare("SELECT data_json, checked_at FROM parts WHERE nsn = ?")
+      .get(nsn);
+    return row
+      ? { data: JSON.parse(String(row.data_json)), checkedAt: String(row.checked_at) }
+      : null;
+  }
+  await ready();
+  const { rows } = await postgres().query(
+    "SELECT data_json, checked_at FROM parts WHERE nsn = $1",
+    [nsn],
+  );
+  return rows[0]
+    ? { data: JSON.parse(String(rows[0].data_json)), checkedAt: String(rows[0].checked_at) }
+    : null;
+}
+
+export async function savePart(nsn: string, data: unknown) {
+  const json = JSON.stringify(data);
+  const at = new Date().toISOString();
+  if (!usePostgres()) {
+    sqlite()
+      .prepare(
+        `INSERT INTO parts (nsn, data_json, checked_at) VALUES (?, ?, ?)
+         ON CONFLICT(nsn) DO UPDATE SET data_json = excluded.data_json, checked_at = excluded.checked_at`,
+      )
+      .run(nsn, json, at);
+    return;
+  }
+  await ready();
+  await postgres().query(
+    `INSERT INTO parts (nsn, data_json, checked_at) VALUES ($1, $2, $3)
+     ON CONFLICT (nsn) DO UPDATE SET data_json = EXCLUDED.data_json, checked_at = EXCLUDED.checked_at`,
+    [nsn, json, at],
+  );
+}
+
+export async function loadParts(nsns: string[]) {
+  if (!nsns.length) return [];
+  if (!usePostgres()) {
+    const marks = nsns.map(() => "?").join(",");
+    return sqlite()
+      .prepare(`SELECT nsn, data_json FROM parts WHERE nsn IN (${marks})`)
+      .all(...nsns)
+      .map((row) => ({ nsn: String(row.nsn), data: JSON.parse(String(row.data_json)) }));
+  }
+  await ready();
+  const { rows } = await postgres().query(
+    "SELECT nsn, data_json FROM parts WHERE nsn = ANY($1::text[])",
+    [nsns],
+  );
+  return rows.map((row) => ({ nsn: String(row.nsn), data: JSON.parse(String(row.data_json)) }));
+}
+

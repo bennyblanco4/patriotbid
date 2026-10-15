@@ -35,6 +35,14 @@ import {
   type Filters,
   type Opportunity,
 } from "../lib/opportunities";
+import { PartThumb, supplyGroup, type Photo } from "./fsc";
+type Part = {
+  nsn: string;
+  loading: boolean;
+  sources: { name: string; cage: string; partNumber: string }[];
+  photo: Photo | null;
+  error: string;
+};
 type Listing = {
   date: string;
   total: number;
@@ -405,6 +413,9 @@ function compareRows(a: Opportunity, b: Opportunity, sort: Sort, today: string) 
   );
 }
 export default function Home() {
+  const [photos, setPhotos] = useState<Record<string, Photo>>({}),
+    [part, setPart] = useState<Part | null>(null);
+  const photoChecked = useRef(new Set<string>());
   const [rows, setRows] = useState<Opportunity[]>([]),
     [listing, setListing] = useState<Listing | null>(null),
     [dates, setDates] = useState<string[]>([]),
@@ -702,9 +713,54 @@ export default function Home() {
     a.click();
     URL.revokeObjectURL(url);
   }
+  // Verified photos already on file for the rows on screen (database only).
+  useEffect(() => {
+    const nsns = visible
+      .map((r) => r.nsn)
+      .filter((n) => !photoChecked.current.has(n));
+    if (!nsns.length) return;
+    nsns.forEach((n) => photoChecked.current.add(n));
+    fetch("/api/parts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nsns }),
+    })
+      .then((res) => (res.ok ? res.json() : { photos: {} }))
+      .then((data) => {
+        if (Object.keys(data.photos || {}).length)
+          setPhotos((current) => ({ ...current, ...data.photos }));
+      })
+      .catch(() => {});
+  }, [visible]);
+  async function loadPart(r: Opportunity) {
+    const pdf = r.pdf || pdfLink(r.solicitation);
+    setPart({ nsn: r.nsn, loading: !!pdf, sources: [], photo: photos[r.nsn] ?? null, error: pdf ? "" : "No solicitation PDF." });
+    if (!pdf) return;
+    try {
+      const res = await fetch(
+        `/api/part?nsn=${encodeURIComponent(r.nsn)}&pdf=${encodeURIComponent(pdf)}`,
+        { cache: "no-store" },
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Could not read the solicitation.");
+      setPart((current) =>
+        current?.nsn === r.nsn
+          ? { nsn: r.nsn, loading: false, sources: data.sources || [], photo: data.photo || null, error: "" }
+          : current,
+      );
+      if (data.photo) setPhotos((current) => ({ ...current, [r.nsn]: data.photo }));
+    } catch (e) {
+      setPart((current) =>
+        current?.nsn === r.nsn
+          ? { ...current, loading: false, error: e instanceof Error ? e.message : "Could not read the solicitation." }
+          : current,
+      );
+    }
+  }
   function show(r: Opportunity) {
     setSelected(r);
     dialog.current?.showModal();
+    void loadPart(r);
   }
   const sortValue = `${sort.key}:${sort.dir}`;
   const pdf = selected ? selected.pdf || pdfLink(selected.solicitation) : null;
@@ -975,13 +1031,18 @@ export default function Home() {
                     return (
                       <tr key={r.id} className={days !== null && days < 0 ? "past" : ""}>
                         <td className="item">
-                          <button className="open" onClick={() => show(r)}>
-                            {r.title}
-                          </button>
-                          <span className="meta">
-                            <span className="mono">{r.nsn}</span>
-                            <span className="nowrap">{r.solicitation}</span>
-                          </span>
+                          <div className="item-wrap">
+                            <PartThumb fsc={r.fsc} photo={photos[r.nsn]} />
+                            <div>
+                              <button className="open" onClick={() => show(r)}>
+                                {r.title}
+                              </button>
+                              <span className="meta">
+                                <span className="mono">{r.nsn}</span>
+                                <span className="nowrap">{r.solicitation}</span>
+                              </span>
+                            </div>
+                          </div>
                         </td>
                         <td className="num">
                           {r.quantity?.toLocaleString() ?? "–"}
@@ -1115,6 +1176,50 @@ export default function Home() {
             >
               <X size={18} />
             </button>
+            {(() => {
+              const mine = part?.nsn === selected.nsn ? part : null;
+              const photo = mine?.photo ?? photos[selected.nsn] ?? null;
+              const checking = !!mine?.loading && !photo;
+              return (
+                <figure className={`media${checking ? " checking" : ""}`}>
+                  {photo ? (
+                    <>
+                      <img
+                        src={photo.url}
+                        alt={`${photo.manufacturer} ${photo.partNumber}`}
+                        referrerPolicy="no-referrer"
+                      />
+                      <figcaption>
+                        <ShieldCheck size={13} aria-hidden="true" />
+                        <span>
+                          Exact P/N <span className="mono">{photo.partNumber}</span> ·{" "}
+                          {photo.manufacturer} ·{" "}
+                          {photo.productUrl ? (
+                            <a href={photo.productUrl} target="_blank" rel="noreferrer">
+                              {photo.provider}
+                            </a>
+                          ) : (
+                            photo.provider
+                          )}
+                        </span>
+                      </figcaption>
+                    </>
+                  ) : (
+                    <>
+                      <PartThumb fsc={selected.fsc} size={64} />
+                      <figcaption>
+                        <strong>{supplyGroup(selected.fsc).label}</strong>
+                        <span>
+                          {checking
+                            ? "Checking the solicitation for an exact part match…"
+                            : "Category picture. No verified photo for this part."}
+                        </span>
+                      </figcaption>
+                    </>
+                  )}
+                </figure>
+              );
+            })()}
             <div className="eyebrow">SOLICITATION DETAILS</div>
             <h2>{selected.title}</h2>
             <p className="mono muted">{selected.nsn}</p>
@@ -1141,6 +1246,33 @@ export default function Home() {
                 </div>
               ))}
             </dl>
+            <section className="sources" aria-label="Approved sources">
+              <h3>Approved sources</h3>
+              {part?.nsn === selected.nsn && part.loading ? (
+                <>
+                  <span className="skeleton" />
+                  <span className="skeleton short" />
+                </>
+              ) : part?.nsn === selected.nsn && part.error ? (
+                <p className="note">Could not read the solicitation PDF. {part.error}</p>
+              ) : part?.nsn === selected.nsn && part.sources.length ? (
+                <ul>
+                  {part.sources.map((src) => (
+                    <li key={`${src.cage}:${src.partNumber}`}>
+                      <strong>{src.name}</strong>
+                      <span>
+                        CAGE {src.cage} · P/N <span className="mono">{src.partNumber}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="note">
+                  No approved part number listed. This item is likely bought to a
+                  specification; check the solicitation.
+                </p>
+              )}
+            </section>
             <p className="note">
               Confirm the unit of issue, delivery schedule, specifications, and
               eligibility in the original solicitation.

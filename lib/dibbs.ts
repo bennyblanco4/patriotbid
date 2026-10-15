@@ -127,13 +127,20 @@ export async function politeTurn() {
   nextSlot = Math.max(now, nextSlot) + MIN_GAP_MS;
   if (wait) await new Promise((resolve) => setTimeout(resolve, wait));
 }
-class DibbsSession {
+export class DibbsSession {
   cookies = new Map<string, string>();
   async request(
     url: string,
     body?: URLSearchParams,
-    depth = 0,
   ): Promise<{ html: string; url: string }> {
+    const response = await this.fetchFollowing(url, body);
+    return { html: await response.text(), url: response.url || url };
+  }
+  private async fetchFollowing(
+    url: string,
+    body?: URLSearchParams,
+    depth = 0,
+  ): Promise<Response> {
     if (depth > 6) throw new Error("DIBBS redirected too many times.");
     if (!safeLink(url)) throw new Error("Unexpected source URL.");
     await politeTurn();
@@ -159,11 +166,33 @@ class DibbsSession {
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location");
       if (!location) throw new Error("Missing DIBBS redirect.");
-      return this.request(new URL(location, url).href, undefined, depth + 1);
+      return this.fetchFollowing(
+        new URL(location, url).href,
+        undefined,
+        depth + 1,
+      );
     }
     if (!response.ok)
       throw new Error(`DIBBS returned HTTP ${response.status}.`);
-    return { html: await response.text(), url };
+    return response;
+  }
+  // Solicitation PDFs sit behind the same consent page as the listing.
+  async file(url: string): Promise<Uint8Array> {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const response = await this.fetchFollowing(url);
+      if ((response.headers.get("content-type") || "").includes("pdf"))
+        return new Uint8Array(await response.arrayBuffer());
+      const html = await response.text();
+      if (attempt || !html.includes('id="butAgree"')) break;
+      const $ = cheerio.load(html);
+      const fields = formFields($);
+      fields.set("butAgree", "OK");
+      await this.request(
+        new URL($("form").attr("action") || url, url).href,
+        fields,
+      );
+    }
+    throw new Error("DIBBS did not return the solicitation PDF.");
   }
   async page(url: string, body?: URLSearchParams) {
     let result = await this.request(url, body);
