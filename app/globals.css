@@ -883,14 +883,15 @@ footer {
   }
   .list tbody tr {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-rows: auto auto 1fr auto;
     grid-template-areas:
-      "item save"
-      "category category"
-      "aside aside"
-      "num due";
-    align-items: center;
-    gap: 10px 12px;
+      "item category save"
+      "item aside save"
+      "item . save"
+      "num due due";
+    align-items: start;
+    gap: 6px 8px;
     padding: 14px;
     border-bottom: 1px solid var(--line-2);
   }
@@ -911,6 +912,7 @@ footer {
   }
   .list .category {
     grid-area: category;
+    justify-self: end;
   }
   .list .num {
     grid-area: num;
@@ -925,11 +927,14 @@ footer {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
+    justify-content: flex-end;
+    gap: 4px;
+    max-width: 150px;
     min-width: 0;
   }
   .list .aside .set-asides {
-    gap: 6px;
+    justify-content: flex-end;
+    gap: 4px;
   }
   .list .aside .badge.docs {
     margin: 0;
