@@ -139,3 +139,16 @@ test("award method reads the 9th character of the solicitation number", () => {
   assert.equal(awardMethod("SPE2DS-26-Q-0101"), "Reviewed by a buyer");
   assert.equal(awardMethod(""), null);
 });
+
+test("award method filter keeps only matching solicitations", () => {
+  const row = rows[0];
+  const mixed = ["SPE4A6-26-T-0001", "SPE4A6-26-U-0002", "SPE4A6-26-Q-0003"].map(
+    (solicitation) => ({ ...row, id: solicitation, solicitation }),
+  );
+  const pick = (awardMethod: string) =>
+    filterRows(mixed, { ...initialFilters, awardMethod }).map((r) => r.solicitation);
+  assert.deepEqual(pick("Automated, lowest price wins"), ["SPE4A6-26-T-0001"]);
+  assert.deepEqual(pick("Automated, long-term contract"), ["SPE4A6-26-U-0002"]);
+  assert.deepEqual(pick("Reviewed by a buyer"), ["SPE4A6-26-Q-0003"]);
+  assert.equal(pick("").length, 3);
+});

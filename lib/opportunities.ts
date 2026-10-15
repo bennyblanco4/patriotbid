@@ -62,6 +62,7 @@ export type Filters = {
   category: string;
   fsc: string;
   setAside: string;
+  awardMethod: string;
   due: string;
   docs: boolean;
   quantity: string;
@@ -72,6 +73,7 @@ export const initialFilters: Filters = {
   category: "",
   fsc: "",
   setAside: "",
+  awardMethod: "",
   due: "",
   docs: false,
   quantity: "",
@@ -95,6 +97,7 @@ export function filterRows(rows: Opportunity[], f: Filters, today = todayEt()) {
       (!q || haystack(r).includes(q)) &&
       (!f.fsc || r.fsc === f.fsc) &&
       (!f.setAside || r.setAside === f.setAside) &&
+      (!f.awardMethod || awardMethod(r.solicitation) === f.awardMethod) &&
       (!f.due || r.due === f.due) &&
       (!f.docs || r.docs === true) &&
       (min === null || (r.quantity !== null && r.quantity >= min)) &&

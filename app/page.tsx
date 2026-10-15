@@ -17,11 +17,14 @@ import {
   Medal,
   PackageOpen,
   Radio,
+  Repeat,
   Search,
   SlidersHorizontal,
   Unlock,
+  UserCheck,
   Users,
   X,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -53,6 +56,12 @@ type Listing = {
   fetchedAt: string | null;
   stored: boolean;
 };
+// Icons for the award methods awardMethod() reads from solicitation numbers.
+const awardMethodIcons: [string, LucideIcon][] = [
+  ["Automated, lowest price wins", Zap],
+  ["Automated, long-term contract", Repeat],
+  ["Reviewed by a buyer", UserCheck],
+];
 function setAsideName(value: string) {
   return value.replace(/\s+set-aside$/i, "").trim();
 }
@@ -779,6 +788,10 @@ export default function Home() {
     () => setAsideParts([...new Set(rows.map((r) => r.setAside))].join(" ")),
     [rows],
   );
+  const awardMethodOptions = useMemo(() => {
+    const present = new Set(rows.map((r) => awardMethod(r.solicitation)));
+    return awardMethodIcons.filter(([label]) => present.has(label));
+  }, [rows]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / 25));
   const currentPage = Math.min(page, pageCount);
   const visible = filtered.slice((currentPage - 1) * 25, currentPage * 25);
@@ -1052,6 +1065,17 @@ export default function Home() {
                 icons: [part.icon],
               }))}
               onChange={(setAside) => update("setAside", setAside)}
+            />
+            <OptionMenu
+              label="Award method"
+              value={shown.awardMethod}
+              placeholder="All award methods"
+              options={awardMethodOptions.map(([label, icon]) => ({
+                value: label,
+                label,
+                icons: [icon],
+              }))}
+              onChange={(method) => update("awardMethod", method)}
             />
             <label className="field">
               <span>Minimum quantity</span>
