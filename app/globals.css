@@ -304,6 +304,9 @@ select {
 .filters {
   padding: 16px;
 }
+.sheet-handle {
+  display: none;
+}
 .filter-title {
   display: flex;
   align-items: center;
@@ -748,6 +751,14 @@ footer {
   .filter-title .done {
     display: inline;
     font-weight: 600;
+  }
+  .sheet-handle {
+    display: block;
+    width: 36px;
+    height: 4px;
+    margin: -6px auto 12px;
+    border-radius: 2px;
+    background: #d5dbe3;
   }
 }
 
@@ -1335,6 +1346,12 @@ footer {
   }
   .filters[popover]:popover-open::backdrop {
     background-color: rgba(24, 37, 59, 0.35);
+  }
+  .filters[popover].closing {
+    transform: translateY(100%);
+  }
+  .filters[popover].closing::backdrop {
+    background-color: rgba(24, 37, 59, 0);
   }
   @starting-style {
     .filters[popover]:popover-open {

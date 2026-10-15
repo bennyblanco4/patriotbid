@@ -98,6 +98,8 @@ function SetAsideLabel({ value }: { value: string }) {
     </span>
   );
 }
+const countActive = (f: Filters) =>
+  Object.entries(f).filter(([key, value]) => key !== "open" && !!value).length;
 const formatDate = (value: string | null) =>
   value
     ? new Date(value + "T12:00:00").toLocaleDateString("en-US", {
@@ -423,7 +425,12 @@ export default function Home() {
     [saved, setSaved] = useState<string[]>([]),
     [page, setPage] = useState(1),
     [sort, setSort] = useState<Sort>({ key: "due", dir: "asc" }),
-    [selected, setSelected] = useState<Opportunity | null>(null);
+    [selected, setSelected] = useState<Opportunity | null>(null),
+    // Filters being edited in the phone sheet; Done applies them.
+    [draft, setDraft] = useState<Filters | null>(null);
+  const shown = draft ?? filters;
+  const sheetOpen = draft !== null;
+  const sheet = useRef<HTMLElement>(null);
   const run = useRef(0);
   const search = useRef<HTMLInputElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -610,9 +617,99 @@ export default function Home() {
     }
   }
   function update<K extends keyof Filters>(key: K, value: Filters[K]) {
-    setFilters((f) => ({ ...f, [key]: value }));
+    edit((f) => ({ ...f, [key]: value }));
+  }
+  function edit(change: (f: Filters) => Filters) {
+    if (draft) {
+      setDraft((d) => (d ? change(d) : d));
+      return;
+    }
+    setFilters(change);
     setPage(1);
   }
+  // Slide the sheet down, then take it out of the top layer.
+  function closeSheet() {
+    const el = sheet.current;
+    if (!el?.matches(":popover-open") || el.classList.contains("closing"))
+      return;
+    const finish = () => {
+      el.hidePopover();
+      el.classList.remove("closing");
+    };
+    el.style.transition = "";
+    el.style.transform = "";
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return finish();
+    el.classList.add("closing");
+    setTimeout(finish, 300);
+  }
+  // While the sheet is open: tap outside or Escape closes it, and it can be
+  // dragged down from anywhere when its content is scrolled to the top.
+  useEffect(() => {
+    const el = sheet.current;
+    if (!sheetOpen || !el) return;
+    let startY = 0,
+      lastY = 0,
+      lastT = 0,
+      speed = 0,
+      tracking = false,
+      dragging = false;
+    const outside = (e: MouseEvent) => {
+      if (el.contains(e.target as Node)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      closeSheet();
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeSheet();
+    };
+    const start = (e: TouchEvent) => {
+      tracking =
+        el.scrollTop <= 0 &&
+        !(e.target as Element).closest(".option-menu");
+      dragging = false;
+      speed = 0;
+      startY = lastY = e.touches[0].clientY;
+      lastT = e.timeStamp;
+    };
+    const move = (e: TouchEvent) => {
+      if (!tracking) return;
+      const y = e.touches[0].clientY;
+      if (!dragging) {
+        if (y - startY < -6) tracking = false;
+        if (y - startY < 6) return;
+        dragging = true;
+      }
+      e.preventDefault();
+      speed = (y - lastY) / Math.max(1, e.timeStamp - lastT);
+      lastY = y;
+      lastT = e.timeStamp;
+      el.style.transition = "none";
+      el.style.transform = `translateY(${Math.max(0, y - startY)}px)`;
+    };
+    const end = () => {
+      if (!dragging) return;
+      dragging = tracking = false;
+      if (lastY - startY > el.offsetHeight * 0.3 || speed > 0.4) closeSheet();
+      else {
+        el.style.transition = "";
+        el.style.transform = "";
+      }
+    };
+    document.addEventListener("click", outside, true);
+    document.addEventListener("keydown", key);
+    el.addEventListener("touchstart", start, { passive: true });
+    el.addEventListener("touchmove", move, { passive: false });
+    el.addEventListener("touchend", end);
+    el.addEventListener("touchcancel", end);
+    return () => {
+      document.removeEventListener("click", outside, true);
+      document.removeEventListener("keydown", key);
+      el.removeEventListener("touchstart", start);
+      el.removeEventListener("touchmove", move);
+      el.removeEventListener("touchend", end);
+      el.removeEventListener("touchcancel", end);
+    };
+  }, [sheetOpen]);
   function toggleSaved(id: string) {
     const next = saved.includes(id)
       ? saved.filter((s) => s !== id)
@@ -657,13 +754,13 @@ export default function Home() {
           rows
             .filter(
               (r) =>
-                !filters.category ||
-                supplyGroup(r.fsc).label === filters.category,
+                !shown.category ||
+                supplyGroup(r.fsc).label === shown.category,
             )
             .map((r) => r.fsc),
         ),
       ].sort(),
-    [rows, filters.category],
+    [rows, shown.category],
   );
   const setAsideOptions = useMemo(
     () => setAsideParts([...new Set(rows.map((r) => r.setAside))].join(" ")),
@@ -680,9 +777,7 @@ export default function Home() {
     }).length;
   }, [filtered]);
   const narrowed = filtered.length !== rows.length;
-  const active = Object.entries(filters).filter(
-    ([key, value]) => key !== "open" && !!value,
-  ).length;
+  const active = countActive(filters);
   const dateOptions =
     listing?.date && !dates.includes(listing.date)
       ? [listing.date, ...dates]
@@ -860,39 +955,54 @@ export default function Home() {
           </section>
         )}
         <div className="layout">
-          <aside id="filters" className="filters card" popover="auto">
+          <aside
+            id="filters"
+            ref={sheet}
+            className="filters card"
+            popover="manual"
+            onToggle={(e) =>
+              setDraft(
+                e.newState === "open" && matchMedia("(max-width: 999px)").matches
+                  ? filters
+                  : null,
+              )
+            }
+          >
+            <span className="sheet-handle" aria-hidden="true" />
             <div className="filter-title">
               <h2>
                 <Filter size={14} aria-hidden="true" /> Filters
               </h2>
               <button
                 className="text-button"
-                disabled={!active && !filters.open}
-                onClick={() => {
-                  setFilters(initialFilters);
-                  setPage(1);
-                }}
+                disabled={!countActive(shown) && !shown.open}
+                onClick={() => edit(() => initialFilters)}
               >
                 Reset
               </button>
               <button
                 className="text-button done"
-                popoverTarget="filters"
-                popoverTargetAction="hide"
+                onClick={() => {
+                  if (draft) {
+                    setFilters(draft);
+                    setPage(1);
+                  }
+                  closeSheet();
+                }}
               >
                 Done
               </button>
             </div>
             <DateMenu
               label="Quote deadline"
-              value={filters.due}
+              value={shown.due}
               emptyLabel="Any deadline"
               clearLabel="Any deadline"
               onChange={(iso) => update("due", iso)}
             />
             <OptionMenu
               label="Category"
-              value={filters.category}
+              value={shown.category}
               placeholder="All categories"
               search
               options={categoryOptions.map(([label, icon]) => ({
@@ -900,21 +1010,20 @@ export default function Home() {
                 label,
                 icons: [icon],
               }))}
-              onChange={(category) => {
-                setFilters((f) => ({
+              onChange={(category) =>
+                edit((f) => ({
                   ...f,
                   category,
                   fsc:
                     category && f.fsc && supplyGroup(f.fsc).label !== category
                       ? ""
                       : f.fsc,
-                }));
-                setPage(1);
-              }}
+                }))
+              }
             />
             <OptionMenu
               label="Federal supply class"
-              value={filters.fsc}
+              value={shown.fsc}
               placeholder="All classes"
               search
               options={fscOptions.map((f) => ({ value: f, label: `FSC ${f}` }))}
@@ -922,7 +1031,7 @@ export default function Home() {
             />
             <OptionMenu
               label="Set-aside"
-              value={filters.setAside}
+              value={shown.setAside}
               placeholder="All set-asides"
               options={setAsideOptions.map((part) => ({
                 value: part.label,
@@ -938,14 +1047,14 @@ export default function Home() {
                 inputMode="numeric"
                 min="0"
                 placeholder="Any quantity"
-                value={filters.quantity}
+                value={shown.quantity}
                 onChange={(e) => update("quantity", e.target.value)}
               />
             </label>
             <label className="check">
               <input
                 type="checkbox"
-                checked={filters.open}
+                checked={shown.open}
                 onChange={(e) => update("open", e.target.checked)}
               />
               Open RFQs only
@@ -953,7 +1062,7 @@ export default function Home() {
             <label className="check">
               <input
                 type="checkbox"
-                checked={filters.docs}
+                checked={shown.docs}
                 onChange={(e) => update("docs", e.target.checked)}
               />
               Technical documents available
