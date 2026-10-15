@@ -511,7 +511,7 @@ export default function Home() {
               <small>{narrowed ? "Matching these filters" : "Time sensitive"}</small>
             </div>
             <div>
-              <span>Saved for review</span>
+              <span>Saved</span>
               <strong>{savedCount}</strong>
               <small>Watchlist for this issue date</small>
             </div>
@@ -611,7 +611,7 @@ export default function Home() {
                   ref={search}
                   type="search"
                   aria-label="Search"
-                  placeholder="Search item, NSN, or solicitation"
+                  placeholder="Item, NSN, or solicitation"
                   value={filters.search}
                   onChange={(e) => update("search", e.target.value)}
                 />
@@ -649,7 +649,8 @@ export default function Home() {
                 onClick={exportCsv}
                 disabled={!filtered.length}
               >
-                <Download size={14} aria-hidden="true" /> Export
+                <Download size={14} aria-hidden="true" />
+                <span className="export-label">Export</span>
               </button>
             </div>
             {error && (
@@ -696,7 +697,6 @@ export default function Home() {
                           <span className="meta">
                             <span className="mono">{r.nsn}</span>
                             <span className="nowrap">{r.solicitation}</span>
-                            {r.docs && <span className="nowrap">Tech docs</span>}
                           </span>
                         </td>
                         <td className="num">
@@ -705,6 +705,7 @@ export default function Home() {
                         </td>
                         <td className="aside">
                           <SetAside value={r.setAside} />
+                          {r.docs && <span className="tag docs">Tech docs</span>}
                         </td>
                         <td className="due">
                           <strong>{formatDate(r.due)}</strong>
