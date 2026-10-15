@@ -769,9 +769,6 @@ export default function Home() {
       <header className="topbar">
         <div className="topbar-inner">
           <a className="brand" href="/">
-            <span className="brand-mark">
-              <ShieldCheck size={20} />
-            </span>
             <span>
               Patriot<span className="brand-light">Bid</span>
               <small>DEFENSE PROCUREMENT</small>
