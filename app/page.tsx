@@ -35,10 +35,12 @@ import {
   type Opportunity,
 } from "../lib/opportunities";
 import { CategoryLabel, supplyGroup } from "./fsc";
+import { unitName } from "../lib/units";
 type Part = {
   nsn: string;
   loading: boolean;
   sources: { name: string; cage: string; partNumber: string }[];
+  unit: string | null;
   error: string;
 };
 type Listing = {
@@ -826,7 +828,7 @@ export default function Home() {
   }
   async function loadPart(r: Opportunity) {
     const pdf = r.pdf || pdfLink(r.solicitation);
-    setPart({ nsn: r.nsn, loading: !!pdf, sources: [], error: pdf ? "" : "No solicitation PDF." });
+    setPart({ nsn: r.nsn, loading: !!pdf, sources: [], unit: null, error: pdf ? "" : "No solicitation PDF." });
     if (!pdf) return;
     try {
       const res = await fetch(
@@ -837,7 +839,7 @@ export default function Home() {
       if (!res.ok) throw new Error(data.message || "Could not read the solicitation.");
       setPart((current) =>
         current?.nsn === r.nsn
-          ? { nsn: r.nsn, loading: false, sources: data.sources || [], error: "" }
+          ? { nsn: r.nsn, loading: false, sources: data.sources || [], unit: data.unit || null, error: "" }
           : current,
       );
     } catch (e) {
@@ -1318,7 +1320,16 @@ export default function Home() {
                   ["Solicitation", selected.solicitation],
                   ["Purchase request", selected.purchaseRequest],
                   ["Supply class", `FSC ${selected.fsc} · ${supplyGroup(selected.fsc).label}`],
-                  ["Quantity", selected.quantity?.toLocaleString() ?? "Not provided"],
+                  [
+                    "Quantity",
+                    selected.quantity === null
+                      ? "Not provided"
+                      : `${selected.quantity.toLocaleString()}${
+                          part?.nsn === selected.nsn && part.unit
+                            ? ` ${unitName(part.unit)}`
+                            : ""
+                        }`,
+                  ],
                   ["Set-aside", selected.setAside],
                   ["Issued", formatDate(selected.issued)],
                   ["Return by", `${formatDate(selected.due)} · ${dueText(daysLeft(selected.due))}`],

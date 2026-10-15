@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { exactMatch, findPhoto, readSources, sameMaker } from "../lib/parts";
+import { exactMatch, findPhoto, readSources, readUnit, sameMaker } from "../lib/parts";
+import { unitName } from "../lib/units";
 
 const text = [
   "RQ011: REMOVAL OF GOVERNMENT IDENTIFICATION FROM NON-ACCEPTED SUPPLIES",
@@ -71,4 +72,25 @@ test("photo lookup accepts only an exact match from the distributor", async () =
     globalThis.fetch = realFetch;
     delete process.env.MOUSER_API_KEY;
   }
+});
+
+// Line items copied from real DIBBS solicitations (Oct 2026).
+test("reads the unit of issue from automated and manual line items", () => {
+  const automated = [
+    "CLIN   PR   PRLI   UI   QUANTITY   UNIT PRICE   TOTAL PRICE   .",
+    "0001   7018675772   0001   QT   93.000 NSN/MATERIAL:9150016970703",
+  ].join("\n");
+  assert.equal(readUnit(automated), "QT");
+  assert.equal(unitName("QT"), "Quart");
+  assert.equal(
+    readUnit("0002   0000000000   EA   1.000 NSN/MATERIAL:0001S00000053"),
+    "EA",
+  );
+  const manual = [
+    "ITEM NO.   SUPPLIES/SERVICES   QUANTITY   UNIT   UNIT   PRICE   AMOUNT   .",
+    "0001   6685-22-617-1434   4.000   EA   $   ________________   $   ________________",
+  ].join("\n");
+  assert.equal(readUnit(manual), "EA");
+  assert.equal(unitName("18"), "55 gallon drum");
+  assert.equal(readUnit("no line items here"), null);
 });

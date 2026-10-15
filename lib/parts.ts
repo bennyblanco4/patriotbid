@@ -1,5 +1,6 @@
 import { getDocumentProxy } from "unpdf";
 import { DibbsSession, safeLink } from "./dibbs";
+import { isUnitCode } from "./units";
 
 // An approved source named in a solicitation: who makes the item and under
 // which part number. DLA prints these as "MANUFACTURER CAGE P/N NUMBER".
@@ -15,6 +16,8 @@ export type Photo = {
 
 export type PartInfo = {
   sources: Source[];
+  // DoD unit of issue code from the line item, such as "EA".
+  unit?: string | null;
   photo: Photo | null;
   // Whether a photo provider was available when this was checked; a miss
   // without one is retried once a key is configured.
@@ -43,6 +46,16 @@ export function readSources(text: string): Source[] {
   ))
     add(m[1], m[2], m[3]);
   return [...found.values()];
+}
+
+// The unit of issue printed on the first line item. Automated RFQs list
+// "CLIN PR PRLI UI QUANTITY" ("0001 7018541488 0001 EA 34.000"); manual ones
+// list "ITEM NO. SUPPLIES/SERVICES QUANTITY UNIT" ("0001 6685-22-617-1434 4.000 EA $").
+export function readUnit(text: string): string | null {
+  const code =
+    text.match(/^\s*\d{4}\s+\d{10}\s+(?:\d{4}\s+)?([0-9A-Z]{2})\s+[\d,]+\.\d+\b/m)?.[1] ??
+    text.match(/^\s*\d{4}\s+[0-9A-Z-]{9,20}\s+[\d,]+\.\d+\s+([0-9A-Z]{2})\s+\$/m)?.[1];
+  return code && isUnitCode(code) ? code : null;
 }
 
 // The manufacturer has to agree as well as the part number, so two
@@ -129,7 +142,7 @@ let session: { value: DibbsSession; at: number } | null = null;
 export async function readSolicitation(
   pdfUrl: string,
   nsn: string,
-): Promise<Source[]> {
+): Promise<{ sources: Source[]; unit: string | null }> {
   const url = safeLink(pdfUrl);
   if (!url || !/^https:\/\/dibbs2\.bsm\.dla\.mil\/Downloads\/RFQ\//i.test(url))
     throw new Error("Unexpected solicitation link.");
@@ -141,7 +154,7 @@ export async function readSolicitation(
   const digits = nsn.replace(/[^0-9A-Z]/gi, "").slice(0, 13).toUpperCase();
   if (!compact(text).includes(digits))
     throw new Error("This solicitation does not list the item.");
-  return readSources(text);
+  return { sources: readSources(text), unit: readUnit(text) };
 }
 
 // Rebuild lines from pdf.js text items; merged extraction can glue the end
