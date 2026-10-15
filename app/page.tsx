@@ -631,6 +631,7 @@ export default function Home() {
     return filterRows(rows, { ...f, setAside: "" }, today)
       .filter(
         (r) =>
+          (!f.category || supplyGroup(r.fsc).label === f.category) &&
           (!f.setAside ||
             setAsideParts(r.setAside).some((part) => part.label === f.setAside)) &&
           (view !== "saved" || savedSet.has(r.id)),
@@ -641,9 +642,28 @@ export default function Home() {
     () => rows.filter((r) => savedSet.has(r.id)).length,
     [rows, savedSet],
   );
+  const categoryOptions = useMemo(() => {
+    const groups = new Map<string, LucideIcon>();
+    for (const r of rows) {
+      const { label, icon } = supplyGroup(r.fsc);
+      groups.set(label, icon);
+    }
+    return [...groups].sort(([a], [b]) => a.localeCompare(b));
+  }, [rows]);
   const fscOptions = useMemo(
-    () => [...new Set(rows.map((r) => r.fsc))].sort(),
-    [rows],
+    () =>
+      [
+        ...new Set(
+          rows
+            .filter(
+              (r) =>
+                !filters.category ||
+                supplyGroup(r.fsc).label === filters.category,
+            )
+            .map((r) => r.fsc),
+        ),
+      ].sort(),
+    [rows, filters.category],
   );
   const setAsideOptions = useMemo(
     () => setAsideParts([...new Set(rows.map((r) => r.setAside))].join(" ")),
@@ -871,9 +891,31 @@ export default function Home() {
               onChange={(iso) => update("due", iso)}
             />
             <OptionMenu
+              label="Category"
+              value={filters.category}
+              placeholder="All categories"
+              search
+              options={categoryOptions.map(([label, icon]) => ({
+                value: label,
+                label,
+                icons: [icon],
+              }))}
+              onChange={(category) => {
+                setFilters((f) => ({
+                  ...f,
+                  category,
+                  fsc:
+                    category && f.fsc && supplyGroup(f.fsc).label !== category
+                      ? ""
+                      : f.fsc,
+                }));
+                setPage(1);
+              }}
+            />
+            <OptionMenu
               label="Federal supply class"
               value={filters.fsc}
-              placeholder="All categories"
+              placeholder="All classes"
               search
               options={fscOptions.map((f) => ({ value: f, label: `FSC ${f}` }))}
               onChange={(fsc) => update("fsc", fsc)}

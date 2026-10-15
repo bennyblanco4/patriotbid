@@ -40,6 +40,7 @@ export function isPastIssueDate(date: string, today = todayEt()) {
 }
 export type Filters = {
   search: string;
+  category: string;
   fsc: string;
   setAside: string;
   due: string;
@@ -49,6 +50,7 @@ export type Filters = {
 };
 export const initialFilters: Filters = {
   search: "",
+  category: "",
   fsc: "",
   setAside: "",
   due: "",
