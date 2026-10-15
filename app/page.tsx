@@ -25,6 +25,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
+  awardMethod,
   daysLeft,
   filterRows,
   initialFilters,
@@ -1315,6 +1316,7 @@ export default function Home() {
                 [
                   ["Solicitation", selected.solicitation],
                   ["Purchase request", selected.purchaseRequest],
+                  ["Award method", awardMethod(selected.solicitation) ?? "Not shown"],
                   ["Supply class", `FSC ${selected.fsc} · ${supplyGroup(selected.fsc).label}`],
                   [
                     "Quantity",

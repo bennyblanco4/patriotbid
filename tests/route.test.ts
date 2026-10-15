@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseRfqHtml } from "../lib/dibbs";
 import {
+  awardMethod,
   daysLeft,
   filterRows,
   initialFilters,
@@ -130,4 +131,11 @@ test("search stays correct across repeated queries on the same rows", () => {
   assert.equal(find("  BAG, individual "), find("bag, individual"));
   assert.equal(find(""), rows.length);
   assert.equal(find("zzzz-not-there"), 0);
+});
+
+test("award method reads the 9th character of the solicitation number", () => {
+  assert.equal(awardMethod("SPE4A6-26-T-1492"), "Automated, lowest price wins");
+  assert.equal(awardMethod("SPE7M126U0001"), "Automated, long-term contract");
+  assert.equal(awardMethod("SPE2DS-26-Q-0101"), "Reviewed by a buyer");
+  assert.equal(awardMethod(""), null);
 });

@@ -21,6 +21,17 @@ export function pdfLink(solicitation: string): string | null {
   const name = id.toUpperCase();
   return `https://dibbs2.bsm.dla.mil/Downloads/RFQ/${name.slice(-1)}/${name}.PDF`;
 }
+// The 9th character of a DLA solicitation number (SPE4A6-26-T-1492) says how
+// the winner is picked. Per the DLA Master Solicitation, T and U are automated
+// awards; any other letter goes to a buyer.
+export function awardMethod(solicitation: string): string | null {
+  const match = /^SPE[A-Z0-9]{3}-?\d{2}-?([A-Z])/i.exec(solicitation);
+  if (!match) return null;
+  const letter = match[1].toUpperCase();
+  if (letter === "T") return "Automated, lowest price wins";
+  if (letter === "U") return "Automated, long-term contract";
+  return "Reviewed by a buyer";
+}
 // Building an Intl formatter is expensive; daysLeft runs per row and per
 // sort comparison, so build it once.
 const easternDate = new Intl.DateTimeFormat("en-CA", {
