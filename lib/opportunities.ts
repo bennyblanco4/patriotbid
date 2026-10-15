@@ -21,22 +21,18 @@ export function pdfLink(solicitation: string): string | null {
   const name = id.toUpperCase();
   return `https://dibbs2.bsm.dla.mil/Downloads/RFQ/${name.slice(-1)}/${name}.PDF`;
 }
-export function daysLeft(
-  date: string | null,
-  today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/New_York",
-  }).format(new Date()),
-) {
+// Building an Intl formatter is expensive; daysLeft runs per row and per
+// sort comparison, so build it once.
+const easternDate = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/New_York",
+});
+export const todayEt = () => easternDate.format(new Date());
+export function daysLeft(date: string | null, today = todayEt()) {
   return date
     ? Math.round((Date.parse(date) - Date.parse(today)) / 86400000)
     : null;
 }
-export function isPastIssueDate(
-  date: string,
-  today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/New_York",
-  }).format(new Date()),
-) {
+export function isPastIssueDate(date: string, today = todayEt()) {
   const match = /^(\d{2})-(\d{2})-(\d{4})$/.exec(date);
   if (!match) return false;
   const left = daysLeft(`${match[3]}-${match[1]}-${match[2]}`, today);
@@ -60,22 +56,27 @@ export const initialFilters: Filters = {
   quantity: "",
   open: false,
 };
-export function filterRows(rows: Opportunity[], f: Filters) {
-  return rows.filter((r) => {
-    const days = daysLeft(r.due);
-    const q = f.search.toLowerCase().trim();
-    return (
-      (!q ||
-        `${r.title} ${r.nsn} ${r.solicitation} ${r.nsn.replaceAll("-", "")}`
-          .toLowerCase()
-          .includes(q)) &&
+const haystacks = new WeakMap<Opportunity, string>();
+function haystack(r: Opportunity) {
+  let text = haystacks.get(r);
+  if (text === undefined) {
+    text =
+      `${r.title} ${r.nsn} ${r.solicitation} ${r.nsn.replaceAll("-", "")}`.toLowerCase();
+    haystacks.set(r, text);
+  }
+  return text;
+}
+export function filterRows(rows: Opportunity[], f: Filters, today = todayEt()) {
+  const q = f.search.toLowerCase().trim();
+  const min = f.quantity ? Number(f.quantity) : null;
+  return rows.filter(
+    (r) =>
+      (!q || haystack(r).includes(q)) &&
       (!f.fsc || r.fsc === f.fsc) &&
       (!f.setAside || r.setAside === f.setAside) &&
       (!f.due || r.due === f.due) &&
       (!f.docs || r.docs === true) &&
-      (!f.quantity ||
-        (r.quantity !== null && r.quantity >= Number(f.quantity))) &&
-      (!f.open || (r.status === "Open" && (days === null || days >= 0)))
-    );
-  });
+      (min === null || (r.quantity !== null && r.quantity >= min)) &&
+      (!f.open || (r.status === "Open" && (r.due === null || r.due >= today))),
+  );
 }

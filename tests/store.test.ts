@@ -42,7 +42,7 @@ test("saves a daily listing and the other issue dates", async () => {
   assert.equal((await loadDay("09-27-2026"))?.rows[0].solicitation, row.solicitation);
   await saveDates(["09-26-2026"]);
   assert.deepEqual(await loadDates(), ["09-26-2026"]);
-  assert.equal((await savedPastDay("09-27-2026", "2026-09-28"))?.rows.length, 1);
+  assert.equal((await savedPastDay("09-27-2026", "2026-09-28"))?.count, 1);
   assert.equal(await savedPastDay("09-28-2026", "2026-09-28"), null);
   await saveDay({
     date: "09-26-2026",

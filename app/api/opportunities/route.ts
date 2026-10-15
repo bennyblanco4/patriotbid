@@ -2,16 +2,22 @@ import { fetchDailyRfqs, type Feed } from "../../../lib/dibbs";
 import type { Opportunity } from "../../../lib/opportunities";
 import {
   loadDates,
-  loadDay,
+  loadDayRaw,
   saveDates,
   saveDay,
   savedPastDay,
+  type RawDay,
 } from "../../../lib/store";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 const cache = new Map<string, { feed: Feed; at: number }>();
 const pending = new Map<string, Promise<Feed>>();
+// Rows gathered per issue date while the browser walks the source pages, so
+// the server can save the finished day itself instead of the browser
+// uploading every row back after the import.
+const imports = new Map<string, Map<number, Opportunity[]>>();
+const noStore = { "Cache-Control": "no-store" };
 
 function isOpportunity(value: unknown): value is Opportunity {
   if (!value || typeof value !== "object") return false;
@@ -24,6 +30,48 @@ function isOpportunity(value: unknown): value is Opportunity {
     typeof row.url === "string" &&
     row.url.startsWith("https://www.dibbs.bsm.dla.mil/")
   );
+}
+
+// Stored rows are already JSON text; splice them in rather than parsing and
+// re-serializing the whole day.
+function dayResponse(day: RawDay | null, fields: Record<string, unknown>) {
+  const meta = JSON.stringify({
+    total: day?.total ?? 0,
+    pages: day?.pages ?? 0,
+    fetchedAt: day?.fetchedAt ?? null,
+    source: day?.source ?? "",
+    ...fields,
+  });
+  return new Response(`${meta.slice(0, -1)},"rows":${day?.rowsJson ?? "[]"}}`, {
+    headers: { "Content-Type": "application/json", ...noStore },
+  });
+}
+
+async function collect(feed: Feed) {
+  let pages = imports.get(feed.date);
+  if (!pages || feed.page === 1) {
+    pages = new Map();
+    imports.delete(feed.date);
+    if (imports.size >= 5) imports.delete(imports.keys().next().value!);
+    imports.set(feed.date, pages);
+  }
+  pages.set(feed.page, feed.rows);
+  if (feed.page < feed.pages) return false;
+  for (let page = 1; page <= feed.pages; page++)
+    if (!pages.has(page)) return false;
+  const rows = new Map<string, Opportunity>();
+  for (let page = 1; page <= feed.pages; page++)
+    for (const row of pages.get(page)!) rows.set(row.id, row);
+  imports.delete(feed.date);
+  await saveDay({
+    date: feed.date,
+    rows: [...rows.values()],
+    total: feed.total,
+    pages: feed.pages,
+    fetchedAt: feed.fetchedAt,
+    source: feed.source,
+  });
+  return true;
 }
 
 export async function GET(request: Request) {
@@ -42,36 +90,33 @@ export async function GET(request: Request) {
       );
     const saved = date ? await savedPastDay(date) : null;
     if (saved)
-      return Response.json(
-        {
-          stored: true,
-          skipped: true,
-          date: saved.date,
-          rows: saved.rows,
-          total: saved.total,
-          pages: 1,
-          fetchedAt: saved.fetchedAt,
-          source: saved.source,
-          dates: await loadDates(),
-        },
-        { headers: { "Cache-Control": "no-store" } },
-      );
+      return dayResponse(saved, {
+        stored: true,
+        skipped: true,
+        date: saved.date,
+        pages: 1,
+        dates: await loadDates(),
+      });
     const key = `${date || "latest"}:${page}`;
     const entry = cache.get(key);
-    if (entry && Date.now() - entry.at < 300000)
+    if (entry && Date.now() - entry.at < 300000) {
+      const stored = await collect(entry.feed);
       return Response.json(
-        { ...entry.feed, cached: true },
-        { headers: { "Cache-Control": "no-store" } },
+        { ...entry.feed, cached: true, stored },
+        { headers: noStore },
       );
+    }
     try {
       if (!pending.has(key)) pending.set(key, fetchDailyRfqs(date, page));
       const feed = await pending.get(key)!;
+      cache.delete(key);
       if (cache.size >= 300) cache.delete(cache.keys().next().value!);
       cache.set(key, { feed, at: Date.now() });
       if (page === 1 && feed.dates.length) await saveDates(feed.dates);
+      const stored = await collect(feed);
       return Response.json(
-        { ...feed, cached: false },
-        { headers: { "Cache-Control": "no-store" } },
+        { ...feed, cached: false, stored },
+        { headers: noStore },
       );
     } catch (error) {
       return Response.json(
@@ -88,22 +133,12 @@ export async function GET(request: Request) {
 
   const dates = await loadDates();
   const selected = date || dates[0] || "";
-  const day = selected ? await loadDay(selected) : null;
-  return Response.json(
-    {
-      dates,
-      date: selected,
-      rows: day?.rows ?? [],
-      total: day?.total ?? 0,
-      pages: day?.pages ?? 0,
-      fetchedAt: day?.fetchedAt ?? null,
-      source: day?.source ?? "",
-      stored: !!day,
-    },
-    { headers: { "Cache-Control": "no-store" } },
-  );
+  const day = selected ? await loadDayRaw(selected) : null;
+  return dayResponse(day, { dates, date: selected, stored: !!day });
 }
 
+// Fallback for imports the server could not assemble itself (for example
+// after a restart mid-import).
 export async function POST(request: Request) {
   let body: unknown;
   try {
@@ -122,13 +157,8 @@ export async function POST(request: Request) {
   const existing = await savedPastDay(data.date);
   if (existing)
     return Response.json(
-      {
-        ok: true,
-        skipped: true,
-        date: existing.date,
-        count: existing.rows.length,
-      },
-      { headers: { "Cache-Control": "no-store" } },
+      { ok: true, skipped: true, date: existing.date, count: existing.count },
+      { headers: noStore },
     );
   await saveDay({
     date: data.date,
@@ -142,9 +172,11 @@ export async function POST(request: Request) {
     source: typeof data.source === "string" ? data.source : "",
   });
   if (Array.isArray(data.dates))
-    await saveDates(data.dates.filter((date): date is string => typeof date === "string"));
+    await saveDates(
+      data.dates.filter((date): date is string => typeof date === "string"),
+    );
   return Response.json(
     { ok: true, date: data.date, count: rows.length },
-    { headers: { "Cache-Control": "no-store" } },
+    { headers: noStore },
   );
 }

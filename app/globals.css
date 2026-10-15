@@ -612,20 +612,6 @@ kbd {
   align-items: center;
   gap: 5px;
 }
-.refresh {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border-radius: 50%;
-  border: 1px solid #dcefe7;
-  background: #f0faf6;
-  color: #269375;
-  display: grid;
-  place-items: center;
-}
-.refresh:hover {
-  background: #e3f6ee;
-}
 .table-scroll {
   overflow-x: auto;
 }
@@ -924,14 +910,6 @@ footer span:first-child {
 .empty p {
   font-size: 12px;
   margin-bottom: 20px;
-}
-.spin {
-  animation: spin 1s linear infinite;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 .sr-only {
   position: absolute;

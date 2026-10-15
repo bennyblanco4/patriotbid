@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   Bookmark,
@@ -18,7 +18,6 @@ import {
   Medal,
   PackageOpen,
   Radio,
-  RefreshCw,
   Search,
   ShieldCheck,
   Unlock,
@@ -32,6 +31,7 @@ import {
   initialFilters,
   isPastIssueDate,
   pdfLink,
+  todayEt,
   type Filters,
   type Opportunity,
 } from "../lib/opportunities";
@@ -44,7 +44,18 @@ type Listing = {
 function setAsideName(value: string) {
   return value.replace(/\s+set-aside$/i, "").trim();
 }
+// Only a handful of distinct set-aside strings exist, but this runs per row
+// for filtering and rendering.
+const setAsideCache = new Map<string, { label: string; icon: LucideIcon }[]>();
 function setAsideParts(value: string): { label: string; icon: LucideIcon }[] {
+  let parts = setAsideCache.get(value);
+  if (!parts) {
+    parts = readSetAside(value);
+    if (setAsideCache.size < 500) setAsideCache.set(value, parts);
+  }
+  return parts;
+}
+function readSetAside(value: string): { label: string; icon: LucideIcon }[] {
   const text = value.toLowerCase();
   const parts: { label: string; icon: LucideIcon }[] = [];
   if (text.includes("veteran")) parts.push({ label: "Veteran", icon: Medal });
@@ -357,7 +368,7 @@ function OptionMenu({
   );
 }
 type Sort = { key: "title" | "quantity" | "docs" | "due"; dir: "asc" | "desc" };
-function compareRows(a: Opportunity, b: Opportunity, sort: Sort) {
+function compareRows(a: Opportunity, b: Opportunity, sort: Sort, today: string) {
   const dir = sort.dir === "asc" ? 1 : -1;
   if (sort.key === "title") return a.title.localeCompare(b.title) * dir;
   if (sort.key === "quantity") {
@@ -369,7 +380,7 @@ function compareRows(a: Opportunity, b: Opportunity, sort: Sort) {
   if (sort.key === "docs")
     return (Number(a.docs === true) - Number(b.docs === true)) * dir;
   return (
-    (Number((daysLeft(a.due) ?? 0) < 0) - Number((daysLeft(b.due) ?? 0) < 0) ||
+    (Number(!!a.due && a.due < today) - Number(!!b.due && b.due < today) ||
       (a.due || "9999").localeCompare(b.due || "9999")) * dir
   );
 }
@@ -519,7 +530,8 @@ export default function Home() {
     if (isPastIssueDate(date) && listing?.stored && listing.date === date) return;
     setSyncing(true);
     setError("");
-    let all: Opportunity[] = [];
+    const all = new Map<string, Opportunity>();
+    let storedByServer = false;
     let total = 0;
     let pages = 1;
     let fetchedAt = new Date().toISOString();
@@ -551,32 +563,36 @@ export default function Home() {
         pages = data.pages;
         fetchedAt = data.fetchedAt;
         source = data.source;
-        all = [
-          ...new Map([...all, ...data.rows].map((r) => [r.id, r])).values(),
-        ];
+        for (const r of data.rows as Opportunity[]) all.set(r.id, r);
+        storedByServer = !!data.stored;
         if (!keepCurrent) {
-          setRows(all);
+          setRows([...all.values()]);
           if (sourcePage === 1) setPage(1);
         }
         if (sourcePage >= data.pages) break;
       }
-      const save = await fetch("/api/opportunities", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          date,
-          rows: all,
-          total,
-          pages,
-          fetchedAt,
-          source,
-          dates: issueDates,
-        }),
-      });
-      const saved = await save.json();
-      if (id !== run.current) return;
-      if (!save.ok) throw new Error(saved.message || "Could not save this date.");
-      setRows(all);
+      // The server saves the day as it serves the last page; upload the rows
+      // only when it could not assemble them (e.g. it restarted mid-import).
+      if (!storedByServer) {
+        const save = await fetch("/api/opportunities", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date,
+            rows: [...all.values()],
+            total,
+            pages,
+            fetchedAt,
+            source,
+            dates: issueDates,
+          }),
+        });
+        const saved = await save.json();
+        if (id !== run.current) return;
+        if (!save.ok)
+          throw new Error(saved.message || "Could not save this date.");
+      }
+      setRows([...all.values()]);
       setListing({ date, total, fetchedAt, stored: true });
       if (keepCurrent) setPage(1);
     } catch (e) {
@@ -607,27 +623,44 @@ export default function Home() {
       localStorage.setItem("patriotbid-saved", JSON.stringify(next));
     } catch {}
   }
-  const filtered = useMemo(
-    () =>
-      filterRows(rows, { ...filters, setAside: "" })
-        .filter(
-          (r) =>
-            !filters.setAside ||
-            setAsideParts(r.setAside).some(
-              (part) => part.label === filters.setAside,
-            ),
-        )
-        .filter((r) => view !== "saved" || saved.includes(r.id))
-        .sort((a, b) => compareRows(a, b, sort)),
-    [rows, filters, view, saved, sort],
+  const savedSet = useMemo(() => new Set(saved), [saved]);
+  // Typing stays responsive while a large listing re-filters in the background.
+  const deferredFilters = useDeferredValue(filters);
+  const filtered = useMemo(() => {
+    const today = todayEt();
+    const f = deferredFilters;
+    return filterRows(rows, { ...f, setAside: "" }, today)
+      .filter(
+        (r) =>
+          (!f.setAside ||
+            setAsideParts(r.setAside).some((part) => part.label === f.setAside)) &&
+          (view !== "saved" || savedSet.has(r.id)),
+      )
+      .sort((a, b) => compareRows(a, b, sort, today));
+  }, [rows, deferredFilters, view, savedSet, sort]);
+  const savedCount = useMemo(
+    () => rows.filter((r) => savedSet.has(r.id)).length,
+    [rows, savedSet],
+  );
+  const fscOptions = useMemo(
+    () => [...new Set(rows.map((r) => r.fsc))].sort(),
+    [rows],
+  );
+  const setAsideOptions = useMemo(
+    () => setAsideParts([...new Set(rows.map((r) => r.setAside))].join(" ")),
+    [rows],
   );
   const pageCount = Math.max(1, Math.ceil(filtered.length / 25));
   const currentPage = Math.min(page, pageCount);
   const visible = filtered.slice((currentPage - 1) * 25, currentPage * 25);
-  const dueSoon = rows.filter((r) => {
-    const d = daysLeft(r.due);
-    return d !== null && d >= 0 && d <= 7;
-  }).length;
+  const dueSoon = useMemo(() => {
+    const today = todayEt();
+    return filtered.filter((r) => {
+      const d = daysLeft(r.due, today);
+      return d !== null && d >= 0 && d <= 7;
+    }).length;
+  }, [filtered]);
+  const narrowed = filtered.length !== rows.length;
   const active = Object.entries(filters).filter(
     ([key, value]) => key !== "open" && !!value,
   ).length;
@@ -745,22 +778,14 @@ export default function Home() {
                 : "A clearer view of DIBBS. Find the parts you supply and the RFQs worth quoting."}
             </p>
           </div>
-          <div className="heading-actions">
-            <button
-              className="button"
-              onClick={exportCsv}
-              disabled={!filtered.length}
-            >
-              <Download size={16} /> Export CSV
-            </button>
-          </div>
         </section>
+        {view !== "saved" && (
         <section className="stats" aria-label="Listing overview">
           <div>
             <span className="stat-label">
               Opportunities <PackageOpen size={18} />
             </span>
-            <strong>{rows.length.toLocaleString()}</strong>
+            <strong>{filtered.length.toLocaleString()}</strong>
             <small>
               {listing?.date
                 ? `Issued ${listing.date.replaceAll("-", " / ")}`
@@ -777,16 +802,17 @@ export default function Home() {
               {dueSoon.toLocaleString()}
               <span className="stat-tag">Time sensitive</span>
             </strong>
-            <small>In this listing</small>
+            <small>{narrowed ? "Matching these filters" : "In this listing"}</small>
           </div>
           <div>
             <span className="stat-label">
               Saved for review <Bookmark size={18} />
             </span>
-            <strong>{rows.filter((r) => saved.includes(r.id)).length}</strong>
+            <strong>{savedCount}</strong>
             <small>Watchlist for this issue date</small>
           </div>
         </section>
+        )}
         <section className="workspace">
           <aside className="filters">
             <div className="filter-title">
@@ -824,7 +850,7 @@ export default function Home() {
               value={filters.fsc}
               placeholder="All categories"
               search
-              options={[...new Set(rows.map((r) => r.fsc))].sort().map((f) => ({
+              options={fscOptions.map((f) => ({
                 value: f,
                 label: `FSC ${f}`,
               }))}
@@ -834,7 +860,7 @@ export default function Home() {
               label="Set-aside"
               value={filters.setAside}
               placeholder="All set-asides"
-              options={setAsideParts(rows.map((r) => r.setAside).join(" ")).map(
+              options={setAsideOptions.map(
                 (part) => ({
                   value: part.label,
                   label: part.label,
@@ -930,25 +956,11 @@ export default function Home() {
                       : "DIBBS"}
                 </span>
                 <button
-                  className="refresh"
-                  aria-label={
-                    listing?.stored && isPastIssueDate(listing.date)
-                      ? "Past issue date already saved"
-                      : syncing
-                        ? "Updating this issue date"
-                        : "Update this issue date"
-                  }
-                  disabled={
-                    syncing ||
-                    !listing?.date ||
-                    (listing.stored && isPastIssueDate(listing.date))
-                  }
-                  onClick={() => {
-                    if (!listing?.date) return;
-                    void pull(listing.date, ++run.current, true);
-                  }}
+                  className="button"
+                  onClick={exportCsv}
+                  disabled={!filtered.length}
                 >
-                  <RefreshCw size={14} className={syncing ? "spin" : ""} />
+                  <Download size={16} /> Export CSV
                 </button>
               </div>
             </div>
@@ -1017,15 +1029,15 @@ export default function Home() {
                       >
                         <td>
                           <button
-                            className={`save ${saved.includes(r.id) ? "saved" : ""}`}
-                            aria-label={`${saved.includes(r.id) ? "Unsave" : "Save"} ${r.title}`}
-                            aria-pressed={saved.includes(r.id)}
+                            className={`save ${savedSet.has(r.id) ? "saved" : ""}`}
+                            aria-label={`${savedSet.has(r.id) ? "Unsave" : "Save"} ${r.title}`}
+                            aria-pressed={savedSet.has(r.id)}
                             onClick={() => toggleSaved(r.id)}
                           >
                             <Bookmark
                               size={17}
                               fill={
-                                saved.includes(r.id) ? "currentColor" : "none"
+                                savedSet.has(r.id) ? "currentColor" : "none"
                               }
                             />
                           </button>

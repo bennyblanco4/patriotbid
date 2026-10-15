@@ -91,3 +91,14 @@ test("deadline math uses calendar dates", () => {
   assert.equal(daysLeft("2026-10-01", "2026-09-28"), 3);
   assert.equal(daysLeft(null), null);
 });
+test("requests to DIBBS are spaced at least a second apart", async () => {
+  const { politeTurn } = await import("../lib/dibbs");
+  const start = Date.now();
+  const times: number[] = [];
+  await Promise.all(
+    [0, 1, 2].map(() => politeTurn().then(() => times.push(Date.now() - start))),
+  );
+  times.sort((a, b) => a - b);
+  assert.ok(times[1] - times[0] >= 950, `gap ${times[1] - times[0]}ms`);
+  assert.ok(times[2] - times[1] >= 950, `gap ${times[2] - times[1]}ms`);
+});

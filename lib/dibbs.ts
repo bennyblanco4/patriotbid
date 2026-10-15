@@ -1,4 +1,7 @@
 import * as cheerio from "cheerio";
+type Doc = cheerio.CheerioAPI;
+const load = (page: string | Doc) =>
+  typeof page === "string" ? cheerio.load(page) : page;
 import { pdfLink, type Opportunity } from "./opportunities";
 export const SOURCE =
   "https://www.dibbs.bsm.dla.mil/RFQ/RFQDates.aspx?category=issue";
@@ -16,8 +19,11 @@ export function safeLink(href: string, base = SOURCE): string | null {
     return null;
   }
 }
-export function parseRfqHtml(html: string, base = SOURCE): Opportunity[] {
-  const $ = cheerio.load(html);
+export function parseRfqHtml(
+  html: string | Doc,
+  base = SOURCE,
+): Opportunity[] {
+  const $ = load(html);
   const rows: Opportunity[] = [];
   $('[id$="_lblNsn"]').each((_, el) => {
     const row = $(el).closest("tr");
@@ -44,13 +50,13 @@ export function parseRfqHtml(html: string, base = SOURCE): Opportunity[] {
       .find((s) =>
         /set.aside|small business|HUBZone|woman.owned|veteran.owned/i.test(s),
       );
-    const qty = field("lblPr")
-      .text()
-      .match(/QTY:\s*([\d,]+(?:\.\d+)?)/i)?.[1];
+    const pr = field("lblPr").text();
+    const purchaseRequest = pr.match(/^\d+/)?.[0] || "";
+    const qty = pr.match(/QTY:\s*([\d,]+(?:\.\d+)?)/i)?.[1];
     const docs = normalize(field("lblTechnicalDocuments").text());
     rows.push({
-      purchaseRequest: field("lblPr").text().match(/^\d+/)?.[0] || "",
-      id: `${solicitation}:${nsn}:${field("lblPr").text().match(/^\d+/)?.[0] || ""}`,
+      purchaseRequest,
+      id: `${solicitation}:${nsn}:${purchaseRequest}`,
       solicitation,
       nsn,
       fsc: /^\d{4}-\d{2}-\d{3}-\d{4}$|^\d{13}$/.test(nsn)
@@ -92,18 +98,34 @@ export function readIssueLinks(html: string) {
   ];
   return { links, dates };
 }
+// The dates page changes at most daily; every visit asked DIBBS for it with a
+// fresh session (notice + agreement + listing). Remember it briefly.
+let issueDates: { dates: string[]; at: number } | null = null;
 export async function listIssueDates(): Promise<string[]> {
+  if (issueDates && Date.now() - issueDates.at < 300000) return issueDates.dates;
   const session = new DibbsSession();
   const listing = await session.page(SOURCE);
-  return readIssueLinks(listing.html).dates;
+  const { dates } = readIssueLinks(listing.html);
+  if (dates.length) issueDates = { dates, at: Date.now() };
+  return dates;
 }
-export function formFields(html: string) {
-  const $ = cheerio.load(html);
+export function formFields(html: string | Doc) {
+  const $ = load(html);
   const data = new URLSearchParams();
   $("input[type=hidden][name]").each((_, el) => {
     data.set($(el).attr("name")!, $(el).attr("value") || "");
   });
   return data;
+}
+// DIBBS is a public government service: never send it more than one
+// request per second, however many tabs or imports are running.
+const MIN_GAP_MS = 1000;
+let nextSlot = 0;
+export async function politeTurn() {
+  const now = Date.now();
+  const wait = Math.max(0, nextSlot - now);
+  nextSlot = Math.max(now, nextSlot) + MIN_GAP_MS;
+  if (wait) await new Promise((resolve) => setTimeout(resolve, wait));
 }
 class DibbsSession {
   cookies = new Map<string, string>();
@@ -114,6 +136,7 @@ class DibbsSession {
   ): Promise<{ html: string; url: string }> {
     if (depth > 6) throw new Error("DIBBS redirected too many times.");
     if (!safeLink(url)) throw new Error("Unexpected source URL.");
+    await politeTurn();
     const response = await fetch(url, {
       method: body ? "POST" : "GET",
       body,
@@ -194,6 +217,7 @@ async function fetchDailyRfqsInternal(
     const session = new DibbsSession();
     const listing = await session.page(SOURCE);
     const { links, dates } = readIssueLinks(listing.html);
+    if (dates.length) issueDates = { dates, at: Date.now() };
     const selected = issueDate || dates[0];
     if (!selected || !dates.includes(selected))
       throw new Error("No daily listing is available for this date.");
@@ -215,25 +239,16 @@ async function fetchDailyRfqsInternal(
     sessions.set(selected, saved);
     issueDate = selected;
   }
-  const knownTotal = Number(
-    cheerio
-      .load(saved.html)('[id$="_lblRecCount"]')
-      .text()
-      .replace(/[^\d]/g, ""),
-  );
-  if (page > Math.max(1, Math.ceil(knownTotal / 50)))
+  const recCount = ($: Doc) =>
+    Number($('[id$="_lblRecCount"]').text().replace(/[^\d]/g, ""));
+  const pageOf = ($: Doc) =>
+    Number($("tr.pagination").first().find("span").first().text());
+  let $ = cheerio.load(page === 1 ? saved.firstHtml : saved.html);
+  if (page > Math.max(1, Math.ceil(recCount($) / 50)))
     throw new Error("Requested page exceeds this daily listing.");
-  let html = page === 1 ? saved.firstHtml : saved.html;
   if (page > 1) {
     for (let hop = 0; hop < 25; hop++) {
-      const $ = cheerio.load(html);
-      const total = Number(
-        $('[id$="_lblRecCount"]').text().replace(/[^\d]/g, ""),
-      );
-      const currentPage = Number(
-        $("tr.pagination").first().find("span").first().text(),
-      );
-      if (currentPage === page) break;
+      if (pageOf($) === page) break;
       const actions = $("a[href]")
         .map((_, a) => $(a).attr("href")!)
         .get()
@@ -241,7 +256,7 @@ async function fetchDailyRfqsInternal(
         .filter((s): s is string => !!s);
       let action = actions.includes(String(page))
         ? String(page)
-        : page === Math.ceil(total / 50) && actions.includes("Last")
+        : page === Math.ceil(recCount($) / 50) && actions.includes("Last")
           ? "Last"
           : undefined;
       if (!action) {
@@ -250,11 +265,12 @@ async function fetchDailyRfqsInternal(
           .filter((n) => Number.isFinite(n) && n < page);
         action = steps.length ? String(Math.max(...steps)) : "First";
       }
-      const fields = formFields(html);
+      const fields = formFields($);
       fields.set("__EVENTTARGET", "ctl00$cph1$grdRfqSearch");
       fields.set("__EVENTARGUMENT", `Page$${action}`);
-      html = (await saved.session.page(saved.url, fields)).html;
-      if (!cheerio.load(html)('[id$="_lblRecCount"]').length)
+      const html = (await saved.session.page(saved.url, fields)).html;
+      $ = cheerio.load(html);
+      if (!$('[id$="_lblRecCount"]').length)
         throw new Error("DIBBS interrupted this page. Please try again.");
       saved.html = html;
       saved.at = Date.now();
@@ -263,19 +279,14 @@ async function fetchDailyRfqsInternal(
         throw new Error("Unable to reach the requested source page.");
     }
   }
-  const $ = cheerio.load(html);
-  const total = Number($('[id$="_lblRecCount"]').text().replace(/[^\d]/g, ""));
-  const actualPage =
-    Number($("tr.pagination").first().find("span").first().text()) || 1;
-  if (actualPage !== page)
-    throw new Error(
-      "DIBBS returned a different page. Please try again.",
-    );
-  const rows = parseRfqHtml(html, saved.url);
-  if (!rows.length && total !== 0)
-    throw new Error("DIBBS returned an unrecognized records page.");
   if (!$('[id$="_lblRecCount"]').length)
     throw new Error("DIBBS did not return its RFQ listing. Please retry.");
+  const total = recCount($);
+  if ((pageOf($) || 1) !== page)
+    throw new Error("DIBBS returned a different page. Please try again.");
+  const rows = parseRfqHtml($, saved.url);
+  if (!rows.length && total !== 0)
+    throw new Error("DIBBS returned an unrecognized records page.");
   return {
     rows,
     total,

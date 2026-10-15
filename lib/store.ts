@@ -17,6 +17,7 @@ const globalDb = globalThis as unknown as {
   rfqDb?: DatabaseSync;
   rfqPg?: PgPool;
   rfqPgReady?: Promise<void>;
+  rfqDatesKey?: string;
 };
 
 function usePostgres() {
@@ -88,7 +89,10 @@ function cleanDates(dates: string[]) {
 
 export async function saveDates(dates: string[]) {
   const clean = cleanDates(dates);
-  if (!clean.length) return;
+  // Every first page and every dates request saves the list; skip the
+  // rewrite when nothing changed.
+  const key = clean.join(",");
+  if (!clean.length || globalDb.rfqDatesKey === key) return;
   if (!usePostgres()) {
     const db = sqlite();
     const insert = db.prepare(
@@ -103,6 +107,7 @@ export async function saveDates(dates: string[]) {
       db.exec("ROLLBACK");
       throw error;
     }
+    globalDb.rfqDatesKey = key;
     return;
   }
   await ready();
@@ -110,13 +115,13 @@ export async function saveDates(dates: string[]) {
   try {
     await client.query("BEGIN");
     await client.query("DELETE FROM issue_dates");
-    for (const [index, date] of clean.entries()) {
-      await client.query(
-        "INSERT INTO issue_dates (issue_date, position) VALUES ($1, $2)",
-        [date, index],
-      );
-    }
+    await client.query(
+      `INSERT INTO issue_dates (issue_date, position)
+       SELECT date, position - 1 FROM unnest($1::text[]) WITH ORDINALITY AS t(date, position)`,
+      [clean],
+    );
     await client.query("COMMIT");
+    globalDb.rfqDatesKey = key;
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -177,47 +182,34 @@ export async function saveDay(day: StoredDay) {
   );
 }
 
-export async function loadDay(date: string): Promise<StoredDay | null> {
-  if (!usePostgres()) {
-    const row = sqlite()
-      .prepare(
-        "SELECT issue_date, total, pages, fetched_at, source, rows_json FROM days WHERE issue_date = ?",
-      )
-      .get(date) as
-      | {
-          issue_date: string;
-          total: number;
-          pages: number;
-          fetched_at: string;
-          source: string;
-          rows_json: string;
-        }
-      | undefined;
-    if (!row) return null;
-    return rowToDay(row);
-  }
-  await ready();
-  const result = await postgres().query(
-    "SELECT issue_date, total, pages, fetched_at, source, rows_json FROM days WHERE issue_date = $1",
-    [date],
-  );
-  const row = result.rows[0];
-  if (!row) return null;
-  return rowToDay(row);
-}
+export type RawDay = Omit<StoredDay, "rows"> & {
+  rowsJson: string;
+  count: number;
+};
 
-function rowToDay(row: {
-  issue_date: string;
-  total: number;
-  pages: number;
-  fetched_at: string;
-  source: string;
-  rows_json: string;
-}): StoredDay {
-  const rows = JSON.parse(String(row.rows_json)) as Opportunity[];
+// Rows stay as the stored JSON text so a read can go straight to the
+// response without a parse and re-serialize of the whole day.
+export async function loadDayRaw(date: string): Promise<RawDay | null> {
+  let row: Record<string, unknown> | undefined;
+  if (!usePostgres()) {
+    row = sqlite()
+      .prepare(
+        "SELECT issue_date, total, pages, fetched_at, source, rows_json, json_array_length(rows_json) AS count FROM days WHERE issue_date = ?",
+      )
+      .get(date);
+  } else {
+    await ready();
+    const result = await postgres().query(
+      "SELECT issue_date, total, pages, fetched_at, source, rows_json, json_array_length(rows_json::json) AS count FROM days WHERE issue_date = $1",
+      [date],
+    );
+    row = result.rows[0];
+  }
+  if (!row) return null;
   return {
     date: String(row.issue_date),
-    rows: Array.isArray(rows) ? rows : [],
+    rowsJson: String(row.rows_json),
+    count: Number(row.count),
     total: Number(row.total),
     pages: Number(row.pages),
     fetchedAt: String(row.fetched_at),
@@ -225,12 +217,20 @@ function rowToDay(row: {
   };
 }
 
+export async function loadDay(date: string): Promise<StoredDay | null> {
+  const raw = await loadDayRaw(date);
+  if (!raw) return null;
+  const { rowsJson, count, ...day } = raw;
+  const rows = JSON.parse(rowsJson) as Opportunity[];
+  return { ...day, rows: Array.isArray(rows) ? rows : [] };
+}
+
 export async function savedPastDay(
   date: string,
   today?: string,
-): Promise<StoredDay | null> {
+): Promise<RawDay | null> {
   if (!isPastIssueDate(date, today)) return null;
-  const day = await loadDay(date);
-  if (!day || day.total < 1 || day.rows.length < day.total) return null;
+  const day = await loadDayRaw(date);
+  if (!day || day.total < 1 || day.count < day.total) return null;
   return day;
 }
