@@ -682,8 +682,7 @@ footer {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .sheet[open],
-  .filters:popover-open {
+  .sheet[open] {
     transition:
       transform 0.2s ease-out,
       opacity 0.2s ease-out;
@@ -1309,6 +1308,39 @@ footer {
   }
   .topbar nav button:not(.active):hover {
     color: var(--ink);
+  }
+}
+
+/* Filters sheet slides up on open and back down on close (phones, tablets) */
+@media (max-width: 999px) and (prefers-reduced-motion: no-preference) {
+  .filters[popover] {
+    animation: none;
+    transform: translateY(100%);
+    transition:
+      transform 0.3s cubic-bezier(0.32, 0.72, 0, 1),
+      display 0.3s allow-discrete,
+      overlay 0.3s allow-discrete;
+  }
+  .filters[popover]:popover-open {
+    transform: translateY(0);
+  }
+  .filters[popover]::backdrop {
+    background-color: rgba(24, 37, 59, 0);
+    transition:
+      background-color 0.3s ease,
+      display 0.3s allow-discrete,
+      overlay 0.3s allow-discrete;
+  }
+  .filters[popover]:popover-open::backdrop {
+    background-color: rgba(24, 37, 59, 0.35);
+  }
+  @starting-style {
+    .filters[popover]:popover-open {
+      transform: translateY(100%);
+    }
+    .filters[popover]:popover-open::backdrop {
+      background-color: rgba(24, 37, 59, 0);
+    }
   }
 }
 
