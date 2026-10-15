@@ -881,7 +881,7 @@ footer {
   }
   /* Same table as desktop; swipe sideways to see every column */
   .list {
-    min-width: 760px;
+    min-width: 860px;
   }
   .pager {
     padding: 12px;
@@ -1139,8 +1139,11 @@ footer {
   color: #b8483e;
   border: 1px solid #f6dcd9;
 }
+.list td.docs {
+  white-space: nowrap;
+  color: var(--faint);
+}
 .badge.docs {
-  margin: 4px 0 0 4px;
   background: #effaf4;
   color: #3f7a58;
   border: 1px solid #d9efe2;

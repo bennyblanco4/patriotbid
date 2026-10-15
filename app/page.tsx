@@ -1146,6 +1146,7 @@ export default function Home() {
                       <th>CATEGORY</th>
                       <th className="num">QTY</th>
                       <th>SET-ASIDE</th>
+                      <th>TECH DOCS</th>
                       <th>RETURN BY</th>
                       <th>
                         <span className="sr-only">Save</span>
@@ -1175,11 +1176,15 @@ export default function Home() {
                           </td>
                           <td className="aside">
                             <SetAsideLabel value={r.setAside} />
-                            {r.docs && (
+                          </td>
+                          <td className="docs">
+                            {r.docs ? (
                               <span className="badge docs">
                                 <FileText size={12} aria-hidden="true" />
-                                <span className="docs-label">Tech docs</span>
+                                Tech docs
                               </span>
+                            ) : (
+                              "–"
                             )}
                           </td>
                           <td className="due">
