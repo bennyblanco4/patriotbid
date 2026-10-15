@@ -21,6 +21,14 @@ export function pdfLink(solicitation: string): string | null {
   const name = id.toUpperCase();
   return `https://dibbs2.bsm.dla.mil/Downloads/RFQ/${name.slice(-1)}/${name}.PDF`;
 }
+// DIBBS links every "Tech Docs" icon to DLA's technical data site with the
+// solicitation number, e.g. ...bySolicitation%3ASPE1C127Q0064.
+export function techDocsLink(solicitation: string): string | null {
+  const id = solicitation.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  if (!/^[A-Z0-9]{13}$/.test(id)) return null;
+  return `https://tdmt.dla.mil/tdmt/Client/?StartItem=DSP_TDP_Acquisition_Doc%3AbySolicitation%3A${id}`;
+}
+
 // The 9th character of a DLA solicitation number (SPE4A6-26-T-1492) says how
 // the winner is picked. Per the DLA Master Solicitation, T and U are automated
 // awards; any other letter goes to a buyer.

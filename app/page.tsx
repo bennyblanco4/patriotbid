@@ -31,6 +31,7 @@ import {
   initialFilters,
   isPastIssueDate,
   pdfLink,
+  techDocsLink,
   todayEt,
   type Filters,
   type Opportunity,
@@ -1188,11 +1189,17 @@ export default function Home() {
                             <SetAsideLabel value={r.setAside} />
                           </td>
                           <td className="docs">
-                            {r.docs ? (
-                              <span className="badge docs">
-                                <FileText size={12} aria-hidden="true" />
-                                Tech docs
-                              </span>
+                            {r.docs && techDocsLink(r.solicitation) ? (
+                              <a
+                                className="badge docs docs-link"
+                                href={techDocsLink(r.solicitation)!}
+                                target="_blank"
+                                rel="noreferrer"
+                                title="Open tech docs"
+                                aria-label={`Open tech docs for ${r.title}`}
+                              >
+                                <FileText size={14} aria-hidden="true" />
+                              </a>
                             ) : (
                               "–"
                             )}
@@ -1308,6 +1315,7 @@ export default function Home() {
           if (e.target === dialog.current) dialog.current.close();
         }}
       >
+        <div className="sheet-body">
         {selected && (
           <>
             <button
@@ -1343,7 +1351,17 @@ export default function Home() {
                   ["Status", selected.status],
                   [
                     "Technical documents",
-                    selected.docs ? "Available" : selected.docs === false ? "None listed" : "Unknown",
+                    selected.docs && techDocsLink(selected.solicitation) ? (
+                      <a href={techDocsLink(selected.solicitation)!} target="_blank" rel="noreferrer">
+                        Open tech docs
+                      </a>
+                    ) : selected.docs ? (
+                      "Available"
+                    ) : selected.docs === false ? (
+                      "None listed"
+                    ) : (
+                      "Unknown"
+                    ),
                   ],
                 ] as const
               ).map(([k, v]) => (
@@ -1448,6 +1466,7 @@ export default function Home() {
             </div>
           </>
         )}
+        </div>
       </dialog>
     </>
   );
