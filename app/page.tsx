@@ -1174,6 +1174,12 @@ export default function Home() {
                         <td className="num">
                           {r.quantity?.toLocaleString() ?? "–"}
                           <span className="unit"> qty</span>
+                          {r.docs && (
+                            <span className="badge docs phone-only">
+                              <FileText size={12} aria-hidden="true" />
+                              Tech docs
+                            </span>
+                          )}
                         </td>
                         <td className="aside">
                           <SetAsideLabel value={r.setAside} />

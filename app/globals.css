@@ -435,7 +435,8 @@ select {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.unit {
+.unit,
+.list .phone-only {
   display: none;
 }
 .open {
@@ -894,15 +895,13 @@ footer {
   }
   .list tbody tr {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    grid-template-rows: auto auto 1fr auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas:
-      "item category save"
-      "item aside save"
-      "item . save"
-      "num due due";
-    align-items: start;
-    gap: 6px 8px;
+      "item item save"
+      "category aside aside"
+      "num num due";
+    align-items: center;
+    gap: 8px 6px;
     padding: 14px;
     border-bottom: 1px solid var(--line-2);
   }
@@ -927,7 +926,6 @@ footer {
   }
   .list .category {
     grid-area: category;
-    justify-self: end;
   }
   .list .num {
     grid-area: num;
@@ -942,13 +940,19 @@ footer {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: flex-end;
     gap: 4px;
-    max-width: 150px;
     min-width: 0;
   }
+  /* Tech docs sits beside the quantity on phones */
+  .list .aside .badge.docs {
+    display: none;
+  }
+  .list .num .phone-only {
+    display: inline-flex;
+    margin: 0 0 0 8px;
+    vertical-align: middle;
+  }
   .list .aside .set-asides {
-    justify-content: flex-end;
     gap: 4px;
   }
   .list .aside .badge.docs {
