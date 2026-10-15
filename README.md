@@ -1,50 +1,83 @@
-# PatriotBid — DIBBS solicitation browser
+# PatriotBid
 
-A real-data supplier workspace built with Next.js, React, TypeScript, Cheerio, and plain CSS. No database, account, API key, mock records, or demo mode.
+**A free, clearer view of DIBBS, the Defense Logistics Agency's bid board.** Find the military parts you can supply, see what the government paid last time, and spot the RFQs worth quoting.
 
-## Run
+**[Try it live](https://salespatriot-9ebf514d9ea4.herokuapp.com/)** · No account, no login, no paywall.
 
-Node.js 22+ is recommended.
+![PatriotBid demo: filtering by award method, searching, and opening past award prices](docs/demo.gif)
+
+## Why
+
+DLA posts around 2,000 requests for quotes (RFQs) on [DIBBS](https://www.dibbs.bsm.dla.mil/) every business day. The data is public, but the site is hard to read: raw government codes, no useful filters, and the details that decide whether a bid is worth it (past prices, approved suppliers, units) are buried in a PDF.
+
+Paid tools fix this for hundreds to thousands of dollars a year. PatriotBid does the core of it for free.
+
+## Features
+
+- **Plain English everywhere.** Supply class codes become categories like *Hardware* or *Medical*, set-asides get readable badges, unit codes become *Each* or *Kit*, and the solicitation number is translated into how the winner is picked (*Automated, lowest price wins* or *Reviewed by a buyer*).
+- **Past award prices.** Every RFQ shows what DLA paid before: unit price, quantity, date and winning CAGE code, read straight from the solicitation's procurement history.
+- **Approved sources.** The suppliers and part numbers DLA will accept, pulled from the solicitation PDF.
+- **One-click tech docs.** The green icon opens the drawings and specs on DLA's technical data site.
+- **Real filters.** Category, supply class, set-aside, award method, deadline, minimum quantity, open only, and tech docs available. Search by item name, NSN (with or without dashes), or solicitation number.
+- **Watchlist and CSV export.** Save RFQs in your browser and export any filtered view.
+- **Works on phones.** The full table scrolls sideways; the details open as a bottom sheet.
+
+| Details popup | On a phone |
+|---|---|
+| ![Details popup with past awards and approved sources](docs/screenshot-details.png) | <img src="docs/screenshot-mobile.png" alt="PatriotBid on a phone" width="300"> |
+
+![The full RFQ table on desktop](docs/screenshot-table.png)
+
+## How it works
+
+```
+DIBBS daily listing ──► Cheerio parser ──► database ──► Next.js API ──► React table
+DIBBS solicitation PDF ──► unpdf ──► approved sources, unit, award history (cached per NSN)
+```
+
+- The server opens DIBBS's public notice page, keeps the session cookies, accepts the notice the same way a browser does, and reads the daily RFQ grid page by page. No logins or verification challenges are bypassed.
+- Requests to DIBBS are rate limited to one per second, and each issue date is stored once it's complete, so repeat visitors never hit DIBBS again for the same day.
+- The first time anyone opens an item, its solicitation PDF is read for approved sources, unit of issue and past awards. The result is cached by NSN.
+- Nothing is invented. Fields DIBBS doesn't provide stay blank, and every popup links back to the original PDF and DIBBS page.
+
+Built with Next.js, React, TypeScript, Cheerio, unpdf and plain CSS. Storage is Postgres when `DATABASE_URL` is set, otherwise a local SQLite file.
+
+## Run it yourself
+
+Requires Node.js 22.
 
 ```sh
 npm install
 npm run dev
 ```
 
-Open http://localhost:3000. For a production build: `npm run build` then `npm start`.
+Open http://127.0.0.1:3000. For production: `npm run build`, then `npm start`.
 
-## Data flow
+### Environment variables
 
-DIBBS → Next.js `/api/opportunities` → Cheerio → JSON → React table.
+All optional.
 
-The server opens the public DIBBS notice, retains its session cookies, submits the notice form with its actual ASP.NET hidden fields, discovers available issue dates, and parses the actual daily record grid. Pagination submits DIBBS's real ASP.NET postback state. No authentication or verification challenges are bypassed.
+| Variable | What it does |
+|---|---|
+| `DATABASE_URL` | Postgres connection string. Without it, data is stored in `data/rfqs.sqlite`. |
+| `RFQ_DB_PATH` | Custom path for the SQLite file. |
+| `MOUSER_API_KEY` | Enables product photos for approved part numbers via the Mouser API. |
 
-The UI loads the latest available issue date, imports all source pages sequentially, and makes each batch searchable immediately. It reports exactly how many records are loaded; filters and counts cover loaded rows until import finishes. Select another issue date to inspect a different day. Stop and resume controls handle slow source responses. DIBBS can add records during an import, so the displayed loaded count can differ from the latest source total; sync again for a refreshed pass. Data pages and sessions are cached in bounded server memory for five minutes. Restarting clears the cache. This MVP expects a persistent Node server; serverless cold starts can reestablish the public session.
+### Deploy
 
-## Supplier workflow
+The repo includes a `Procfile` for Heroku. Add the Heroku Postgres add-on so `DATABASE_URL` is set, then push.
 
-- Search item name, formatted/compact NSN, or solicitation.
-- Filter FSC, set-aside, deadline, minimum quantity, open status, and technical documents.
-- Sort by deadline, item name, or quantity.
-- Save RFQ identifiers locally in your browser and browse the watchlist for the selected day.
-- Open a detail dialog or the original DIBBS package.
-- Export the currently filtered records as CSV.
-
-Quantity comes from DIBBS's purchase-request field. The listing does not provide units, so the UI directs the supplier to the package instead of assuming EA. Set-asides come from source icon descriptions. Unknown fields remain unknown. There are no invented contract values, eligibility decisions, or live-sync claims.
-
-## Verification
+## Tests
 
 ```sh
-npm test
+npm test               # parser, filters, storage and API route tests
 npm run typecheck
 npm run build
-npx tsx tests/live-check.ts
+npx tsx tests/live-check.ts   # optional: checks paging against live DIBBS
 ```
 
-The parser tests use an actual public DIBBS HTML response captured on September 28, 2026; that file is a test fixture only and is never used by the application. The optional live check confirms first, second, and final page retrieval against the current listing.
+The parser tests run against a real DIBBS page captured as a fixture in `tests/`.
 
-## Tradeoffs
+## Disclaimer
 
-DIBBS is a legacy external service: imports may take several minutes for thousands of records. The table remains usable during import, and failures retain already loaded rows. A five-minute cache reduces repeat traffic. A production expansion could persist daily imports in a scheduled database job, while keeping this UI and normalized record schema.
-
-Original design reference: `code.html`. Its blue/white procurement style is implemented in `app/globals.css`; unrelated analytics, fictional account data, security claims, and fake feed metrics were removed. `code.html` is a lightweight launch page for the implemented app.
+PatriotBid is an independent project and is not affiliated with the Defense Logistics Agency or the U.S. government. Always confirm requirements, eligibility and deadlines in the original solicitation before you quote.
