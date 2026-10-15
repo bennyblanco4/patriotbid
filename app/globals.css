@@ -892,12 +892,13 @@ footer {
   }
   .list tbody tr {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
-      "item item save"
-      "num aside due";
-    align-items: end;
-    gap: 8px 10px;
+      "item save"
+      "aside aside"
+      "num due";
+    align-items: center;
+    gap: 10px 12px;
     padding: 14px;
     border-bottom: 1px solid var(--line-2);
   }
@@ -927,9 +928,13 @@ footer {
   .list .aside {
     grid-area: aside;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     min-width: 0;
+  }
+  .list .aside .set-asides {
+    gap: 6px;
   }
   .list .aside .badge.docs {
     margin: 0;
