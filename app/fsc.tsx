@@ -155,45 +155,13 @@ export function supplyGroup(fsc: string) {
   return { label, icon };
 }
 
-export type Photo = {
-  url: string;
-  productUrl: string;
-  provider: string;
-  partNumber: string;
-  manufacturer: string;
-};
-
-// A verified photo when one exists, otherwise the supply group's picture.
-export function PartThumb({
-  fsc,
-  photo,
-  size = 40,
-}: {
-  fsc: string;
-  photo?: Photo | null;
-  size?: number;
-}) {
-  const group = supplyGroup(fsc);
-  if (photo)
-    return (
-      <span className="thumb photo" style={{ width: size, height: size }}>
-        <img
-          src={photo.url}
-          alt={`${photo.manufacturer} ${photo.partNumber}`}
-          loading="lazy"
-          decoding="async"
-          referrerPolicy="no-referrer"
-        />
-      </span>
-    );
-  const Icon = group.icon;
+// Supply group icon with its name, for the table's category column.
+export function CategoryLabel({ fsc }: { fsc: string }) {
+  const { label, icon: Icon } = supplyGroup(fsc);
   return (
-    <span
-      className="thumb"
-      style={{ width: size, height: size }}
-      title={`${group.label} (category picture)`}
-    >
-      <Icon size={Math.round(size * 0.45)} aria-hidden="true" />
+    <span className="badge blue">
+      <Icon size={12} aria-hidden="true" />
+      {label}
     </span>
   );
 }

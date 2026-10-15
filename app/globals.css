@@ -715,8 +715,8 @@ footer {
   .filters[popover] {
     display: block;
     position: sticky;
-    top: 16px;
     inset: auto;
+    top: 16px;
     width: auto;
     height: auto;
     margin: 0;
@@ -886,6 +886,7 @@ footer {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
       "item save"
+      "category category"
       "aside aside"
       "num due";
     align-items: center;
@@ -907,6 +908,9 @@ footer {
   }
   .open {
     font-size: 14px;
+  }
+  .list .category {
+    grid-area: category;
   }
   .list .num {
     grid-area: num;
@@ -1338,80 +1342,9 @@ footer {
 }
 
 
-/* Part pictures: verified photo or supply group tile */
+/* Item cell */
 .item-wrap {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
   min-width: 0;
-}
-.item-wrap > div {
-  min-width: 0;
-}
-.thumb {
-  flex: none;
-  display: grid;
-  place-items: center;
-  border: 1px solid #dfeafa;
-  border-radius: 8px;
-  background: linear-gradient(145deg, #f3f7ff, #e8f0ff);
-  color: #4676ba;
-  overflow: hidden;
-}
-.thumb.photo {
-  border-color: var(--line);
-  background: #fff;
-}
-.thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-.media {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin: 0 40px 18px 0;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #f7f9fc;
-}
-.media figcaption {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  font-size: 12px;
-}
-.media figcaption > span {
-  color: var(--muted);
-}
-.media:has(img) {
-  flex-direction: column;
-  align-items: stretch;
-  margin-right: 0;
-  margin-top: 28px;
-  background: #fff;
-}
-.media > img {
-  width: 100%;
-  height: 200px;
-  object-fit: contain;
-}
-.media:has(img) figcaption {
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-  color: #3f7a58;
-}
-.media:has(img) figcaption a {
-  color: var(--blue);
-}
-.media.checking {
-  background: linear-gradient(100deg, #f7f9fc 30%, #eef3fb 50%, #f7f9fc 70%);
-  background-size: 300% 100%;
-  animation: shimmer 1.4s ease-in-out infinite;
 }
 .sources {
   margin: 0 0 16px;
@@ -1464,9 +1397,4 @@ footer {
     background-position: 0 0;
   }
 }
-@media (max-width: 760px) {
-  .item-wrap .thumb {
-    width: 36px !important;
-    height: 36px !important;
-  }
-}
+
