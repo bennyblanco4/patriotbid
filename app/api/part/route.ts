@@ -15,16 +15,27 @@ async function lookup(nsn: string, pdf: string): Promise<PartInfo> {
   const saved = await loadPart(nsn);
   const cached = saved?.data as PartInfo | undefined;
   // A miss checked before a photo provider was configured is worth retrying,
-  // and entries saved before units were read need the PDF once more.
-  const hasUnit = cached?.unit !== undefined;
-  if (cached && hasUnit && (cached.searched || !photoSearchEnabled()))
+  // and entries saved before units or award history were read need the PDF
+  // once more.
+  const complete = cached?.unit !== undefined && cached?.awards !== undefined;
+  if (cached && complete && (cached.searched || !photoSearchEnabled()))
     return cached;
-  const read = hasUnit ? null : await readSolicitation(pdf, nsn);
-  const sources = cached?.sources ?? read!.sources;
+  // An older entry still has its sources when the PDF has since been taken
+  // down, so show those rather than an error.
+  const read = complete
+    ? null
+    : await readSolicitation(pdf, nsn).catch((error) => {
+        if (cached?.unit !== undefined) return null;
+        throw error;
+      });
+  if (!read && cached && !complete) return { ...cached, awards: [] };
+  const sources = read?.sources ?? cached!.sources;
   const info: PartInfo = {
     sources,
-    unit: hasUnit ? cached!.unit : read!.unit,
-    photo: await findPhoto(sources),
+    unit: read ? read.unit : cached!.unit,
+    awards: read ? read.awards : cached!.awards,
+    photo:
+      cached?.searched && cached.photo ? cached.photo : await findPhoto(sources),
     searched: photoSearchEnabled(),
   };
   await savePart(nsn, info);

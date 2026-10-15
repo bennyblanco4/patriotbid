@@ -14,10 +14,23 @@ export type Photo = {
   manufacturer: string;
 };
 
+// One line of the solicitation's "Procurement History for NSN/FSC" table.
+export type Award = {
+  cage: string;
+  contract: string;
+  quantity: number;
+  unitCost: number;
+  date: string;
+  surplus: boolean;
+};
+
 export type PartInfo = {
   sources: Source[];
   // DoD unit of issue code from the line item, such as "EA".
   unit?: string | null;
+  // Past awards for this NSN, newest first; missing on entries saved before
+  // the history was read.
+  awards?: Award[];
   photo: Photo | null;
   // Whether a photo provider was available when this was checked; a miss
   // without one is retried once a key is configured.
@@ -56,6 +69,30 @@ export function readUnit(text: string): string | null {
     text.match(/^\s*\d{4}\s+\d{10}\s+(?:\d{4}\s+)?([0-9A-Z]{2})\s+[\d,]+\.\d+\b/m)?.[1] ??
     text.match(/^\s*\d{4}\s+[0-9A-Z-]{9,20}\s+[\d,]+\.\d+\s+([0-9A-Z]{2})\s+\$/m)?.[1];
   return code && isUnitCode(code) ? code : null;
+}
+
+// Section A prints past awards as rows of
+// "CAGE CONTRACT QUANTITY UNIT-COST YYYYMMDD SURPLUS", e.g.
+// "4LF36 SPE1C126V0624 1.000 224.90000 20260618 N".
+export function readAwards(text: string): Award[] {
+  const start = text.search(/Procurement\s+History\s+for\s+NSN/i);
+  if (start < 0) return [];
+  const rest = text.slice(start);
+  const end = rest.search(/\bSECTION\s+B\b/);
+  const block = end < 0 ? rest : rest.slice(0, end);
+  const awards: Award[] = [];
+  for (const m of block.matchAll(
+    /\b([0-9A-HJ-NP-Z]{5})\s+([A-Z0-9]{13,20})\s+([\d,]+\.\d+)\s+([\d,]+\.\d+)\s+(\d{4})(\d{2})(\d{2})\s+([YN])\b/g,
+  ))
+    awards.push({
+      cage: m[1],
+      contract: m[2],
+      quantity: Number(m[3].replace(/,/g, "")),
+      unitCost: Number(m[4].replace(/,/g, "")),
+      date: `${m[5]}-${m[6]}-${m[7]}`,
+      surplus: m[8] === "Y",
+    });
+  return awards.sort((a, b) => b.date.localeCompare(a.date));
 }
 
 // The manufacturer has to agree as well as the part number, so two
@@ -142,7 +179,7 @@ let session: { value: DibbsSession; at: number } | null = null;
 export async function readSolicitation(
   pdfUrl: string,
   nsn: string,
-): Promise<{ sources: Source[]; unit: string | null }> {
+): Promise<{ sources: Source[]; unit: string | null; awards: Award[] }> {
   const url = safeLink(pdfUrl);
   if (!url || !/^https:\/\/dibbs2\.bsm\.dla\.mil\/Downloads\/RFQ\//i.test(url))
     throw new Error("Unexpected solicitation link.");
@@ -154,7 +191,7 @@ export async function readSolicitation(
   const digits = nsn.replace(/[^0-9A-Z]/gi, "").slice(0, 13).toUpperCase();
   if (!compact(text).includes(digits))
     throw new Error("This solicitation does not list the item.");
-  return { sources: readSources(text), unit: readUnit(text) };
+  return { sources: readSources(text), unit: readUnit(text), awards: readAwards(text) };
 }
 
 // Rebuild lines from pdf.js text items; merged extraction can glue the end

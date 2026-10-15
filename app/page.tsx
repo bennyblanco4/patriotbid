@@ -37,11 +37,13 @@ import {
 } from "../lib/opportunities";
 import { CategoryLabel, supplyGroup } from "./fsc";
 import { unitName } from "../lib/units";
+import type { Award } from "../lib/parts";
 type Part = {
   nsn: string;
   loading: boolean;
   sources: { name: string; cage: string; partNumber: string }[];
   unit: string | null;
+  awards: Award[];
   error: string;
 };
 type Listing = {
@@ -103,6 +105,13 @@ function SetAsideLabel({ value }: { value: string }) {
 }
 const countActive = (f: Filters) =>
   Object.entries(f).filter(([key, value]) => key !== "open" && !!value).length;
+const money = (value: number) =>
+  value.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: value < 1 ? 4 : 2,
+  });
 const formatDate = (value: string | null) =>
   value
     ? new Date(value + "T12:00:00").toLocaleDateString("en-US", {
@@ -829,7 +838,7 @@ export default function Home() {
   }
   async function loadPart(r: Opportunity) {
     const pdf = r.pdf || pdfLink(r.solicitation);
-    setPart({ nsn: r.nsn, loading: !!pdf, sources: [], unit: null, error: pdf ? "" : "No solicitation PDF." });
+    setPart({ nsn: r.nsn, loading: !!pdf, sources: [], unit: null, awards: [], error: pdf ? "" : "No solicitation PDF." });
     if (!pdf) return;
     try {
       const res = await fetch(
@@ -840,7 +849,7 @@ export default function Home() {
       if (!res.ok) throw new Error(data.message || "Could not read the solicitation.");
       setPart((current) =>
         current?.nsn === r.nsn
-          ? { nsn: r.nsn, loading: false, sources: data.sources || [], unit: data.unit || null, error: "" }
+          ? { nsn: r.nsn, loading: false, sources: data.sources || [], unit: data.unit || null, awards: data.awards || [], error: "" }
           : current,
       );
     } catch (e) {
@@ -1344,6 +1353,43 @@ export default function Home() {
                 </div>
               ))}
             </dl>
+            <section className="sources" aria-label="Past awards">
+              <h3>Past awards</h3>
+              {part?.nsn === selected.nsn && part.loading ? (
+                <span className="skeleton" />
+              ) : part?.nsn === selected.nsn && part.error ? (
+                <p className="note">Could not read the award history.</p>
+              ) : part?.nsn === selected.nsn && part.awards.length ? (
+                <>
+                  <ul>
+                    {part.awards.slice(0, 5).map((award) => {
+                      const winner = part.sources.find((src) => src.cage === award.cage);
+                      return (
+                        <li key={`${award.contract}:${award.date}`}>
+                          <strong>
+                            {money(award.unitCost)} each · {award.quantity.toLocaleString()}
+                            {part.unit ? ` ${unitName(part.unit)}` : ""}
+                          </strong>
+                          <span>
+                            {formatFullDate(award.date)} ·{" "}
+                            {winner ? `${winner.name} (CAGE ${award.cage})` : `CAGE ${award.cage}`}
+                            {award.surplus ? " · Surplus" : ""}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {part.awards.length > 5 && (
+                    <p className="note">
+                      {part.awards.length - 5} earlier award
+                      {part.awards.length - 5 === 1 ? "" : "s"} in the solicitation.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="note">This solicitation lists no award history.</p>
+              )}
+            </section>
             <section className="sources" aria-label="Approved sources">
               <h3>Approved sources</h3>
               {part?.nsn === selected.nsn && part.loading ? (

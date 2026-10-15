@@ -1,6 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { exactMatch, findPhoto, readSources, readUnit, sameMaker } from "../lib/parts";
+import {
+  exactMatch,
+  findPhoto,
+  readAwards,
+  readSources,
+  readUnit,
+  sameMaker,
+} from "../lib/parts";
 import { unitName } from "../lib/units";
 
 const text = [
@@ -93,4 +100,19 @@ test("reads the unit of issue from automated and manual line items", () => {
   assert.equal(readUnit(manual), "EA");
   assert.equal(unitName("18"), "55 gallon drum");
   assert.equal(readUnit("no line items here"), null);
+});
+
+test("reads past awards from the procurement history, newest first", () => {
+  const text = `JSONWEBServiceInquiry@dla.mil Procurement   History for NSN/FSC:016280025/8465
+CAGE   Contract   Number   Quantity   Unit   Cost   AWD Date   Surplus Material
+.
+4LF36   SPE1C125V0550   16.000   112.25000   20250415   N 4LF36   SPE1C126V0624   1.000   224.90000   20260618   N 1ABC2   SPE1C122V0316   1,200.000   0.04150   20220414   Y 
+CONTINUATION SHEET PAGE 6 OF 17 PAGES SPE1C1-27-T-0022 SECTION B PR: 7018541488
+0001   7018541488   0001   EA   34.000   20260101   N`;
+  assert.deepEqual(readAwards(text), [
+    { cage: "4LF36", contract: "SPE1C126V0624", quantity: 1, unitCost: 224.9, date: "2026-06-18", surplus: false },
+    { cage: "4LF36", contract: "SPE1C125V0550", quantity: 16, unitCost: 112.25, date: "2025-04-15", surplus: false },
+    { cage: "1ABC2", contract: "SPE1C122V0316", quantity: 1200, unitCost: 0.0415, date: "2022-04-14", surplus: true },
+  ]);
+  assert.deepEqual(readAwards("no history here"), []);
 });
