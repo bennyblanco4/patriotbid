@@ -481,14 +481,20 @@ export default function Home() {
     }
     if (data.date) applyListing(data);
     setReady(true);
-    if (data.date && !data.stored) void pull(data.date, id, false);
     try {
+      // Refresh the issue dates before scraping anything: the saved list can
+      // be days old, and its newest entry is then not the latest listing.
       const listed = await fetch("/api/dates", { cache: "no-store" });
       const body = await listed.json();
       if (id !== run.current) return;
       if (!listed.ok && !body.dates?.length)
         throw new Error(body.message || "Could not load issue dates.");
       if (body.dates?.length) setDates(body.dates);
+      if (data.date && body.dates?.[0] && body.dates[0] !== data.date) {
+        void choose(body.dates[0]);
+        return;
+      }
+      if (data.date && !data.stored) void pull(data.date, id, false);
       if (!data.date && body.dates?.[0]) {
         const next = await fetch(
           `/api/opportunities?date=${encodeURIComponent(body.dates[0])}`,
@@ -502,7 +508,9 @@ export default function Home() {
         if (!day.stored) void pull(body.dates[0], id, false);
       }
     } catch (e) {
-      if (id === run.current && !data.date)
+      if (id !== run.current) return;
+      if (data.date && !data.stored) void pull(data.date, id, false);
+      if (!data.date)
         setError(
           e instanceof Error ? e.message : "Could not load issue dates.",
         );
