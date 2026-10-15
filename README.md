@@ -65,7 +65,7 @@ All optional.
 
 ### Deploy
 
-The repo includes a `Procfile` for Heroku. Add the Heroku Postgres add-on so `DATABASE_URL` is set, then push.
+Any Node.js host works: it runs `npm run build`, then `npm start`, which listens on `$PORT`. Set `DATABASE_URL` to a Postgres database so stored listings survive restarts.
 
 ## Tests
 

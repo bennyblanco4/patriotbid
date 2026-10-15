@@ -9,7 +9,6 @@
     "dev": "next dev --hostname 127.0.0.1",
     "build": "next build --webpack",
     "start": "next start --hostname 0.0.0.0 --port ${PORT:-3000}",
-    "heroku-postbuild": "next build --webpack",
     "test": "node --import tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
