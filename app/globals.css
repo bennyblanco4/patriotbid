@@ -435,9 +435,10 @@ select {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.unit,
-.list .phone-only {
-  display: none;
+.table-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
 .open {
   display: block;
@@ -886,113 +887,9 @@ footer {
   .button {
     font-size: 14px;
   }
-  .list,
-  .list tbody {
-    display: block;
-  }
-  .list thead {
-    display: none;
-  }
-  .list tbody tr {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas:
-      "item item save"
-      "category aside aside"
-      "num num due";
-    align-items: center;
-    gap: 8px 6px;
-    padding: 14px;
-    border-bottom: 1px solid var(--line-2);
-  }
-  .list tbody tr:last-child {
-    border-bottom: 0;
-  }
-  .list td {
-    display: block;
-    padding: 0;
-    border: 0;
-  }
-  .list .item {
-    grid-area: item;
-    min-width: 0;
-  }
-  .open {
-    font-size: 14px;
-  }
-  /* NSN and solicitation live in the details popup on phones */
-  .list .meta {
-    display: none;
-  }
-  .list .category {
-    grid-area: category;
-  }
-  .list .num {
-    grid-area: num;
-    text-align: left;
-    color: var(--muted);
-  }
-  .unit {
-    display: inline;
-  }
-  .list .aside {
-    grid-area: aside;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px;
-    min-width: 0;
-  }
-  /* Tech docs sits beside the quantity on phones */
-  .list .aside .badge.docs {
-    display: none;
-  }
-  .list .num .phone-only {
-    display: inline-flex;
-    margin: 0 0 0 8px;
-    vertical-align: middle;
-  }
-  .list .aside .set-asides {
-    gap: 4px;
-  }
-  .list .aside .badge.docs {
-    margin: 0;
-    padding: 3px 5px;
-  }
-  .docs-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
-  .list .due {
-    grid-area: due;
-    text-align: right;
-  }
-  /* One line on phones: "Oct 15 · 1 day left" */
-  .list .due > span {
-    display: inline;
-    margin: 0;
-  }
-  .list .due .badge {
-    display: inline-flex;
-    margin-left: 6px;
-  }
-  .list .due > span:not(.badge)::before {
-    content: " · ";
-    color: var(--faint);
-  }
-  .list .actions {
-    grid-area: save;
-    align-self: start;
-    justify-self: end;
-    width: auto;
-  }
-  .save {
-    width: 36px;
-    height: 36px;
-    margin: -8px -8px 0 0;
+  /* Same table as desktop; swipe sideways to see every column */
+  .list {
+    min-width: 760px;
   }
   .pager {
     padding: 12px;

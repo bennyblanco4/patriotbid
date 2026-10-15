@@ -1138,87 +1138,82 @@ export default function Home() {
               </div>
             )}
             {visible.length > 0 && (
-              <table className="list">
-                <thead>
-                  <tr>
-                    <th>ITEM / NSN</th>
-                    <th>CATEGORY</th>
-                    <th className="num">QTY</th>
-                    <th>SET-ASIDE</th>
-                    <th>RETURN BY</th>
-                    <th>
-                      <span className="sr-only">Save</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visible.map((r) => {
-                    const days = daysLeft(r.due);
-                    const isSaved = savedSet.has(r.id);
-                    return (
-                      <tr key={r.id} className={days !== null && days < 0 ? "past" : ""}>
-                        <td className="item">
-                          <div className="item-wrap">
-                            <div>
-                              <button className="open" onClick={() => show(r)}>
-                                {r.title}
-                              </button>
-                              <span className="meta">
-                                <span className="mono">{r.nsn}</span>
-                                <span className="nowrap">{r.solicitation}</span>
-                              </span>
+              <div className="table-scroll">
+                <table className="list">
+                  <thead>
+                    <tr>
+                      <th>ITEM / NSN</th>
+                      <th>CATEGORY</th>
+                      <th className="num">QTY</th>
+                      <th>SET-ASIDE</th>
+                      <th>RETURN BY</th>
+                      <th>
+                        <span className="sr-only">Save</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visible.map((r) => {
+                      const days = daysLeft(r.due);
+                      const isSaved = savedSet.has(r.id);
+                      return (
+                        <tr key={r.id} className={days !== null && days < 0 ? "past" : ""}>
+                          <td className="item">
+                            <div className="item-wrap">
+                              <div>
+                                <button className="open" onClick={() => show(r)}>
+                                  {r.title}
+                                </button>
+                                <span className="meta">
+                                  <span className="mono">{r.nsn}</span>
+                                  <span className="nowrap">{r.solicitation}</span>
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="category">
-                          <CategoryLabel fsc={r.fsc} />
-                        </td>
-                        <td className="num">
-                          {r.quantity?.toLocaleString() ?? "–"}
-                          <span className="unit"> qty</span>
-                          {r.docs && (
-                            <span className="badge docs phone-only">
-                              <FileText size={12} aria-hidden="true" />
-                              Tech docs
-                            </span>
-                          )}
-                        </td>
-                        <td className="aside">
-                          <SetAsideLabel value={r.setAside} />
-                          {r.docs && (
-                            <span className="badge docs">
-                              <FileText size={12} aria-hidden="true" />
-                              <span className="docs-label">Tech docs</span>
-                            </span>
-                          )}
-                        </td>
-                        <td className="due">
-                          <strong>{formatDate(r.due)}</strong>
-                          {days !== null && days < 0 ? (
-                            <span className="badge red">
-                              <Clock3 size={11} aria-hidden="true" /> Past due
-                            </span>
-                          ) : (
-                            <span className={days !== null && days <= 3 ? "soon" : ""}>
-                              {dueText(days)}
-                            </span>
-                          )}
-                        </td>
-                        <td className="actions">
-                          <button
-                            className={`save${isSaved ? " saved" : ""}`}
-                            aria-label={`${isSaved ? "Remove" : "Save"} ${r.title}`}
-                            aria-pressed={isSaved}
-                            onClick={() => toggleSaved(r.id)}
-                          >
-                            <Bookmark size={16} fill={isSaved ? "currentColor" : "none"} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          </td>
+                          <td className="category">
+                            <CategoryLabel fsc={r.fsc} />
+                          </td>
+                          <td className="num">
+                            {r.quantity?.toLocaleString() ?? "–"}
+                          </td>
+                          <td className="aside">
+                            <SetAsideLabel value={r.setAside} />
+                            {r.docs && (
+                              <span className="badge docs">
+                                <FileText size={12} aria-hidden="true" />
+                                <span className="docs-label">Tech docs</span>
+                              </span>
+                            )}
+                          </td>
+                          <td className="due">
+                            <strong>{formatDate(r.due)}</strong>
+                            {days !== null && days < 0 ? (
+                              <span className="badge red">
+                                <Clock3 size={11} aria-hidden="true" /> Past due
+                              </span>
+                            ) : (
+                              <span className={days !== null && days <= 3 ? "soon" : ""}>
+                                {dueText(days)}
+                              </span>
+                            )}
+                          </td>
+                          <td className="actions">
+                            <button
+                              className={`save${isSaved ? " saved" : ""}`}
+                              aria-label={`${isSaved ? "Remove" : "Save"} ${r.title}`}
+                              aria-pressed={isSaved}
+                              onClick={() => toggleSaved(r.id)}
+                            >
+                              <Bookmark size={16} fill={isSaved ? "currentColor" : "none"} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
             {!visible.length && (
               <div className="empty">
