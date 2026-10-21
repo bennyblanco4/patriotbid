@@ -98,11 +98,16 @@ p {
 .topbar-inner {
   max-width: 1400px;
   margin: 0 auto;
-  height: 64px;
+  height: 84px;
   padding: 0 28px;
   display: flex;
   align-items: center;
   gap: 36px;
+}
+.brand img {
+  display: block;
+  height: 68px;
+  width: auto;
 }
 .brand {
   display: flex;
@@ -777,9 +782,12 @@ footer {
 /* Phones */
 @media (max-width: 760px) {
   .topbar-inner {
-    height: 56px;
+    height: 68px;
     padding: 0 14px;
     gap: 14px;
+  }
+  .brand img {
+    height: 52px;
   }
   .brand {
     font-size: 16px;

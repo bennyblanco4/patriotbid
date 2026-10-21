@@ -885,11 +885,8 @@ export default function Home() {
     <>
       <header className="topbar">
         <div className="topbar-inner">
-          <a className="brand" href="/">
-            <span>
-              Patriot<span className="brand-light">Bid</span>
-              <small>DEFENSE PROCUREMENT</small>
-            </span>
+          <a className="brand" href="/" aria-label="Bid Prospect">
+            <img src="/logo.png" alt="" />
           </a>
           <nav aria-label="Main navigation">
             <button

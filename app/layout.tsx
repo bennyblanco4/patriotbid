@@ -1,7 +1,7 @@
 import "./globals.css";
 import type { Viewport } from "next";
 export const metadata = {
-  title: "PatriotBid",
+  title: "Bid Prospect",
   description: "Find DLA opportunities worth quoting.",
 };
 export const viewport: Viewport = {
