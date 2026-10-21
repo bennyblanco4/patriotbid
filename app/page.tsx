@@ -886,7 +886,7 @@ export default function Home() {
       <header className="topbar">
         <div className="topbar-inner">
           <a className="brand" href="/" aria-label="Bid Prospect">
-            <img src="/logo.png" alt="" />
+            <img src="/logo.svg" alt="" />
           </a>
           <nav aria-label="Main navigation">
             <button
