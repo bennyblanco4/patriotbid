@@ -713,6 +713,9 @@ footer {
     animation: none !important;
     transition: none !important;
   }
+  html {
+    scroll-behavior: auto;
+  }
 }
 @media (hover: hover) {
   .list tbody tr:hover {

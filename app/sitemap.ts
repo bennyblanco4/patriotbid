@@ -7,5 +7,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "daily",
       priority: 1,
     },
+    {
+      url: "https://bidprospect.com/dashboard",
+      changeFrequency: "daily",
+      priority: 0.8,
+    },
   ];
 }
