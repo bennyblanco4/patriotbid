@@ -48,8 +48,11 @@ export default async function CategoriesPage() {
             supply class. Pick a group to see its open requests.
           </p>
           <div className={styles.grid}>
-            {groups.map((group) => (
+            {groups.map(({ icon: Icon, ...group }) => (
               <a key={group.code} className={styles.tile} href={`/category/${group.slug}`}>
+                <span className={styles.tileIcon}>
+                  <Icon size={22} aria-hidden="true" />
+                </span>
                 <strong>{group.label}</strong>
                 <span>
                   FSG {group.code} ·{" "}

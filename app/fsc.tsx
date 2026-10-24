@@ -154,9 +154,10 @@ const slug = (label: string) =>
   label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 // Every supply group with the URL slug its category page uses.
-export const supplyGroups = Object.entries(groups).map(([code, [label]]) => ({
+export const supplyGroups = Object.entries(groups).map(([code, [label, icon]]) => ({
   code,
   label,
+  icon,
   slug: slug(label),
 }));
 

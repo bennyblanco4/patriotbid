@@ -117,6 +117,19 @@
   box-shadow: 0 6px 20px rgba(5, 150, 105, 0.08);
 }
 
+.tile .tileIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 8px;
+  border: 1px solid #dfeafa;
+  border-radius: 10px;
+  background: #eff5ff;
+  color: #4676ba;
+}
+
 .tile strong {
   font-size: 16px;
 }
