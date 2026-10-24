@@ -3,9 +3,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   createUserWithEmailAndPassword,
+  getRedirectResult,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
 } from "firebase/auth";
 import { FirebaseError } from "firebase/app";
 import { auth, googleProvider } from "../../lib/firebase";
@@ -18,6 +20,15 @@ type Mode = "signin" | "signup";
 function nextPath() {
   const next = new URLSearchParams(window.location.search).get("next") || "";
   return next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+}
+
+// Phones open the Google popup as a separate tab, and when it closes the
+// browser can land on whatever tab sits next to it. A full-page redirect
+// keeps the whole sign-in in this tab.
+function googleSignIn() {
+  return window.matchMedia("(pointer: coarse)").matches
+    ? signInWithRedirect(auth, googleProvider)
+    : signInWithPopup(auth, googleProvider);
 }
 
 function message(error: unknown) {
@@ -58,6 +69,11 @@ export default function LoginPage() {
   useEffect(() => {
     if (user) router.replace(nextPath());
   }, [user, router]);
+
+  // Surfaces errors from a Google redirect sign-in once we're back here.
+  useEffect(() => {
+    getRedirectResult(auth).catch((e) => setError(message(e)));
+  }, []);
 
   async function run(action: () => Promise<unknown>) {
     setBusy(true);
@@ -107,7 +123,7 @@ export default function LoginPage() {
           type="button"
           className={styles.google}
           disabled={busy}
-          onClick={() => void run(() => signInWithPopup(auth, googleProvider))}
+          onClick={() => void run(googleSignIn)}
         >
           <svg viewBox="0 0 48 48" aria-hidden="true">
             <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z" />

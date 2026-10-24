@@ -47,16 +47,13 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
               <a href="/dashboard">Today's full list</a>
               <a href="/category">Categories</a>
               <a href="/guides">Guides</a>
+              <a href="/privacy">Privacy</a>
               <a href="https://www.dibbs.bsm.dla.mil/RFQ/" target="_blank" rel="noreferrer">
                 Official bid board
               </a>
             </nav>
           </div>
           <div className={styles.footerBottom}>
-            <span className={styles.live}>
-              <i aria-hidden="true" />
-              Taken from the public government bid board. If they left something blank, it stays blank here.
-            </span>
             <span>
               Bid Prospect is a separate website. It is not run by the government.
             </span>
