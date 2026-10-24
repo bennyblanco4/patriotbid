@@ -10,7 +10,7 @@ export const revalidate = 3600;
 
 const title = "Bid Prospect | Free DIBBS search for DLA RFQs";
 const description =
-  "Search today's DLA requests for quotes from DIBBS in plain English: what the government needs, how many, who can bid, past award prices and when quotes are due. Free, no sign-up.";
+  "Search today's DLA requests for quotes from DIBBS in plain English: what the government needs, how many, who can bid, past award prices and when quotes are due. Free.";
 
 export const metadata = {
   title: { absolute: title },
@@ -126,7 +126,7 @@ export default async function LandingPage() {
               </div>
               <div className={`${styles.trust} ${styles.alt}`}>
                 <span className={styles.trustItem}>
-                  <Check /> No sign-up
+                  <Check /> Sign in with Google or email
                 </span>
                 <span>•</span>
                 <span className={styles.trustItem}>

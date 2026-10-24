@@ -311,7 +311,7 @@ export const guides: Guide[] = [
           <li>
             NSN and <a href="/category">category</a> pages that keep the history across days.
           </li>
-          <li>No account and no fee.</li>
+          <li>No fee. You sign in with Google or an email address.</li>
         </ul>
 
         <h2>What you still do on DIBBS</h2>

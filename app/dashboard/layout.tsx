@@ -1,3 +1,5 @@
+import { AuthGate } from "./auth-gate";
+
 const title = "Today's DIBBS RFQs";
 const description =
   "Every DLA request for quotes posted on DIBBS today. Search by part name, NSN or solicitation number and filter by category, set-aside, award method and deadline.";
@@ -6,6 +8,7 @@ export const metadata = {
   title,
   description,
   alternates: { canonical: "/dashboard" },
+  robots: { index: false, follow: true },
   openGraph: {
     title: `${title} | Bid Prospect`,
     description,
@@ -44,7 +47,7 @@ export default function DashboardLayout({
           __html: JSON.stringify(dashboardSchema).replace(/</g, "\\u003c"),
         }}
       />
-      {children}
+      <AuthGate>{children}</AuthGate>
     </>
   );
 }

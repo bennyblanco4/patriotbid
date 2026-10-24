@@ -40,7 +40,6 @@ async function dataPages(): Promise<MetadataRoute.Sitemap> {
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return [
     { url: BASE, changeFrequency: "daily", priority: 1 },
-    { url: `${BASE}/dashboard`, changeFrequency: "daily", priority: 0.8 },
     { url: `${BASE}/category`, changeFrequency: "daily", priority: 0.7 },
     { url: `${BASE}/guides`, changeFrequency: "monthly", priority: 0.6 },
     ...guides.map((guide) => ({

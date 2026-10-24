@@ -13,6 +13,7 @@ import {
   FileText,
   Filter,
   Heart,
+  LogOut,
   MapPin,
   Medal,
   PackageOpen,
@@ -27,6 +28,9 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { signOut } from "firebase/auth";
+import { auth } from "../../lib/firebase";
 import {
   awardMethod,
   isNsn,
@@ -436,6 +440,7 @@ function compareRows(a: Opportunity, b: Opportunity, sort: Sort, today: string) 
   );
 }
 export default function Home() {
+  const router = useRouter();
   const [part, setPart] = useState<Part | null>(null);
   const [rows, setRows] = useState<Opportunity[]>([]),
     [listing, setListing] = useState<Listing | null>(null),
@@ -917,6 +922,12 @@ export default function Home() {
           >
             Open DIBBS <ArrowUpRight size={14} aria-hidden="true" />
           </a>
+          <button
+            className="sign-out"
+            onClick={() => void signOut(auth).then(() => router.replace("/login"))}
+          >
+            <LogOut size={14} aria-hidden="true" /> Sign out
+          </button>
         </div>
       </header>
       <main>

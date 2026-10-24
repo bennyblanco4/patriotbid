@@ -11,7 +11,7 @@ export const metadata = {
     template: "%s | Bid Prospect",
   },
   description:
-    "Search today's DLA requests for quotes from DIBBS in plain English: what the government needs, how many, who can bid, past award prices and when quotes are due. Free, no sign-up.",
+    "Search today's DLA requests for quotes from DIBBS in plain English: what the government needs, how many, who can bid, past award prices and when quotes are due. Free.",
   applicationName: "Bid Prospect",
   openGraph: {
     siteName: "Bid Prospect",
