@@ -18,7 +18,6 @@ const globalDb = globalThis as unknown as {
   rfqPg?: PgPool;
   rfqPgReady?: Promise<void>;
   rfqDatesKey?: string;
-  rfqListingsReady?: Promise<void>;
 };
 
 function usePostgres() {
@@ -49,16 +48,6 @@ function sqlite() {
         data_json TEXT NOT NULL,
         checked_at TEXT NOT NULL
       );
-      CREATE TABLE IF NOT EXISTS listings (
-        id TEXT PRIMARY KEY,
-        nsn TEXT NOT NULL,
-        fsc TEXT NOT NULL,
-        due TEXT,
-        issue_date TEXT NOT NULL,
-        row_json TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS listings_nsn ON listings (nsn);
-      CREATE INDEX IF NOT EXISTS listings_fsc ON listings (fsc);
     `);
     globalDb.rfqDb = db;
   }
@@ -97,16 +86,6 @@ async function ready() {
         data_json TEXT NOT NULL,
         checked_at TEXT NOT NULL
       );
-      CREATE TABLE IF NOT EXISTS listings (
-        id TEXT PRIMARY KEY,
-        nsn TEXT NOT NULL,
-        fsc TEXT NOT NULL,
-        due TEXT,
-        issue_date TEXT NOT NULL,
-        row_json TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS listings_nsn ON listings (nsn);
-      CREATE INDEX IF NOT EXISTS listings_fsc ON listings (fsc);
     `).then(() => undefined);
   }
   await globalDb.rfqPgReady;
@@ -197,7 +176,6 @@ export async function saveDay(day: StoredDay) {
         day.source,
         rowsJson,
       );
-    await syncListings(day.date);
     return;
   }
   await ready();
@@ -212,7 +190,6 @@ export async function saveDay(day: StoredDay) {
        rows_json = EXCLUDED.rows_json`,
     [day.date, day.total, day.pages, day.fetchedAt, day.source, rowsJson],
   );
-  await syncListings(day.date);
 }
 
 export type RawDay = Omit<StoredDay, "rows"> & {
@@ -325,119 +302,3 @@ export async function loadParts(nsns: string[]) {
   return rows.map((row) => ({ nsn: String(row.nsn), data: JSON.parse(String(row.data_json)) }));
 }
 
-
-// One row per request, copied out of the stored days so NSN and category
-// pages can look rows up by NSN or supply class without reading every day.
-// These pages only ever read the database; nothing here contacts DIBBS.
-
-async function run(sql: string, params: unknown[] = []) {
-  if (!usePostgres()) {
-    sqlite().prepare(sql).run(...(params as string[]));
-    return;
-  }
-  await ready();
-  let n = 0;
-  await postgres().query(sql.replace(/\?/g, () => `$${++n}`), params);
-}
-
-async function all(sql: string, params: unknown[] = []) {
-  if (!usePostgres())
-    return sqlite().prepare(sql).all(...(params as string[])) as Record<string, unknown>[];
-  await ready();
-  let n = 0;
-  const { rows } = await postgres().query(sql.replace(/\?/g, () => `$${++n}`), params);
-  return rows as Record<string, unknown>[];
-}
-
-function copyRows(where: string, onConflict: string) {
-  const update = `DO UPDATE SET nsn = excluded.nsn, fsc = excluded.fsc, due = excluded.due,
-    issue_date = excluded.issue_date, row_json = excluded.row_json`;
-  const action = onConflict === "update" ? update : "DO NOTHING";
-  if (!usePostgres())
-    return `INSERT INTO listings (id, nsn, fsc, due, issue_date, row_json)
-      SELECT json_extract(r.value, '$.id'), json_extract(r.value, '$.nsn'),
-        json_extract(r.value, '$.fsc'), json_extract(r.value, '$.due'), d.issue_date, r.value
-      FROM days d, json_each(d.rows_json) r
-      WHERE ${where} AND json_extract(r.value, '$.id') IS NOT NULL
-      ON CONFLICT(id) ${action}`;
-  return `INSERT INTO listings (id, nsn, fsc, due, issue_date, row_json)
-    SELECT r->>'id', COALESCE(r->>'nsn', ''), COALESCE(r->>'fsc', ''), r->>'due', d.issue_date, r::text
-    FROM days d, json_array_elements(d.rows_json::json) r
-    WHERE ${where} AND r->>'id' IS NOT NULL
-    ON CONFLICT (id) ${action}`;
-}
-
-async function syncListings(date: string) {
-  await listingsReady();
-  await run("DELETE FROM listings WHERE issue_date = ?", [date]);
-  await run(copyRows("d.issue_date = ?", "update"), [date]);
-}
-
-// Days saved before the listings table existed are copied over once per
-// process; a request seen on several days keeps its first copy.
-function listingsReady() {
-  if (!globalDb.rfqListingsReady)
-    globalDb.rfqListingsReady = run(
-      copyRows("d.issue_date NOT IN (SELECT DISTINCT issue_date FROM listings)", "skip"),
-    ).catch((error) => {
-      globalDb.rfqListingsReady = undefined;
-      throw error;
-    });
-  return globalDb.rfqListingsReady;
-}
-
-const parseRow = (row: Record<string, unknown>) =>
-  JSON.parse(String(row.row_json)) as Opportunity;
-
-export async function loadNsnRows(nsn: string) {
-  await listingsReady();
-  return (await all("SELECT row_json FROM listings WHERE nsn = ?", [nsn])).map(parseRow);
-}
-
-// Requests in one federal supply group (the first two digits of the FSC):
-// still open ones first by deadline, or the latest ones when none are open.
-export async function loadGroupRows(group: string, today: string, limit = 200) {
-  await listingsReady();
-  const open = (
-    await all(
-      `SELECT row_json FROM listings WHERE fsc LIKE ? AND (due IS NULL OR due >= ?)
-       ORDER BY due LIMIT ?`,
-      [`${group}%`, today, limit],
-    )
-  ).map(parseRow);
-  if (open.length) return { open: true, rows: open };
-  const recent = (
-    await all("SELECT row_json FROM listings WHERE fsc LIKE ? ORDER BY due DESC LIMIT ?", [
-      `${group}%`,
-      50,
-    ])
-  ).map(parseRow);
-  return { open: false, rows: recent };
-}
-
-export async function groupCounts(today: string) {
-  await listingsReady();
-  const rows = await all(
-    `SELECT substr(fsc, 1, 2) AS grp, COUNT(*) AS total,
-       SUM(CASE WHEN due IS NULL OR due >= ? THEN 1 ELSE 0 END) AS open
-     FROM listings GROUP BY substr(fsc, 1, 2)`,
-    [today],
-  );
-  return new Map(
-    rows.map((row) => [String(row.grp), { total: Number(row.total), open: Number(row.open) }]),
-  );
-}
-
-// Part details saved for NSNs that have at least one stored request.
-export async function listedParts() {
-  await listingsReady();
-  const rows = await all(
-    `SELECT p.nsn, p.data_json, p.checked_at FROM parts p
-     WHERE EXISTS (SELECT 1 FROM listings l WHERE l.nsn = p.nsn)`,
-  );
-  return rows.map((row) => ({
-    nsn: String(row.nsn),
-    data: JSON.parse(String(row.data_json)),
-    checkedAt: String(row.checked_at),
-  }));
-}

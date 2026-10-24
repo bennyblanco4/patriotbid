@@ -98,16 +98,11 @@ p {
 .topbar-inner {
   max-width: 1400px;
   margin: 0 auto;
-  height: 84px;
+  height: 64px;
   padding: 0 28px;
   display: flex;
   align-items: center;
   gap: 36px;
-}
-.brand img {
-  display: block;
-  height: 68px;
-  width: auto;
 }
 .brand {
   display: flex;
@@ -168,27 +163,6 @@ p {
   gap: 4px;
   color: #687386;
   font-size: 12px;
-}
-.sign-out {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: -16px;
-  color: #687386;
-  font-size: 12px;
-  white-space: nowrap;
-}
-.sign-out:hover,
-.source-link:hover {
-  color: var(--ink);
-}
-.auth-wait {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 100vh;
-  color: var(--muted);
 }
 
 main {
@@ -734,9 +708,6 @@ footer {
     animation: none !important;
     transition: none !important;
   }
-  html {
-    scroll-behavior: auto;
-  }
 }
 @media (hover: hover) {
   .list tbody tr:hover {
@@ -806,12 +777,9 @@ footer {
 /* Phones */
 @media (max-width: 760px) {
   .topbar-inner {
-    height: 68px;
+    height: 56px;
     padding: 0 14px;
     gap: 14px;
-  }
-  .brand img {
-    height: 52px;
   }
   .brand {
     font-size: 16px;
@@ -830,9 +798,6 @@ footer {
   }
   .source-link {
     display: none;
-  }
-  .sign-out {
-    margin-left: 0;
   }
   main {
     padding: 16px 12px 24px;
