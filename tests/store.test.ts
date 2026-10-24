@@ -54,3 +54,29 @@ test("saves a daily listing and the other issue dates", async () => {
   });
   assert.equal(await savedPastDay("09-26-2026", "2026-09-28"), null);
 });
+
+test("saved days fill the listings that NSN and category pages read", async () => {
+  const { saveDay, loadNsnRows, loadGroupRows, groupCounts } = await import("../lib/store");
+  const day = {
+    date: "09-26-2026",
+    total: 1,
+    pages: 1,
+    fetchedAt: "2026-09-27T12:00:00.000Z",
+    source: "https://www.dibbs.bsm.dla.mil/RFQ/",
+  };
+  const other = { ...row, id: "SPE1C1-26-T-1801:8465-01-690-3107:2", solicitation: "SPE1C1-26-T-1801" };
+  await saveDay({ ...day, rows: [row, other] });
+  assert.equal((await loadNsnRows(row.nsn)).length, 2);
+  const group = await loadGroupRows("84", "2026-10-01");
+  assert.equal(group.open, true);
+  assert.ok(group.rows.some((r) => r.id === row.id));
+  assert.ok(((await groupCounts("2026-10-01")).get("84")?.open ?? 0) >= 2);
+  assert.equal((await loadGroupRows("84", "2026-12-01")).open, false);
+
+  // Saving the day again replaces its rows rather than keeping stale ones.
+  await saveDay({ ...day, rows: [row] });
+  assert.deepEqual(
+    (await loadNsnRows(row.nsn)).map((r) => r.id).sort(),
+    [row.id],
+  );
+});

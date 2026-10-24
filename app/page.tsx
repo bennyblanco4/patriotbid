@@ -1,26 +1,16 @@
-import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { loadDates, loadDayRaw } from "../lib/store";
 import type { Opportunity } from "../lib/opportunities";
 import styles from "./landing.module.css";
 import { PREVIEW_COUNT, RfqList, sortLikeDashboard } from "./rfq-list";
+import { SiteShell } from "./site-shell";
 
-const display = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-display",
-  fallback: ["Avenir Next", "Segoe UI", "sans-serif"],
-});
+// Rebuilt from the database at most hourly so the preview shows the latest
+// saved day instead of the one from deploy time.
+export const revalidate = 3600;
 
-const text = Inter({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-text",
-  fallback: ["Segoe UI", "sans-serif"],
-});
-
-const title = "Bid Prospect | See which government requests are worth a price";
+const title = "Bid Prospect | Free DIBBS search for DLA RFQs";
 const description =
-  "Every business day the government asks companies for a price on parts and supplies. Bid Prospect shows what they need, how many, who can bid, and when the price is due.";
+  "Search today's DLA requests for quotes from DIBBS in plain English: what the government needs, how many, who can bid, past award prices and when quotes are due. Free, no sign-up.";
 
 export const metadata = {
   title: { absolute: title },
@@ -71,7 +61,7 @@ const homeSchema = {
       isPartOf: { "@id": "https://bidprospect.com/#website" },
       about: {
         "@type": "Thing",
-        name: "Government requests for prices on parts and supplies",
+        name: "DLA requests for quotes posted on DIBBS",
       },
       inLanguage: "en",
     },
@@ -95,31 +85,16 @@ async function latestRows() {
 }
 
 export default async function LandingPage() {
-  const year = new Date().getFullYear();
   const listing = await latestRows();
 
   return (
-    <div className={`${styles.root} ${display.variable} ${text.variable}`}>
+    <SiteShell>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(homeSchema).replace(/</g, "\\u003c"),
         }}
       />
-      <header className={styles.header}>
-        <div className={`${styles.wrap} ${styles.headerInner}`}>
-          <a href="/" aria-label="Bid Prospect">
-            <img
-              className={styles.logo}
-              src="/logo.svg"
-              alt="Bid Prospect"
-              width={896}
-              height={637}
-            />
-          </a>
-        </div>
-      </header>
-
       <main>
         <section className={styles.hero}>
           <div className={styles.glow} aria-hidden="true" />
@@ -127,20 +102,21 @@ export default async function LandingPage() {
             <div className={`${styles.kicker} ${styles.rise}`}>
               <div className={`${styles.pill} ${styles.alt}`}>
                 <Radar />
-                <strong>From today's government list</strong>
+                <strong>From today's DIBBS list</strong>
                 <span>•</span>
                 About 2,000 new requests each business day
               </div>
             </div>
             <div className={`${styles.heroCopy} ${styles.rise} ${styles.d1}`}>
               <h1>
-                See which requests are{" "}
+                See which DIBBS requests are{" "}
                 <span className={styles.accent}>worth a price.</span>
               </h1>
               <p className={`${styles.lede} ${styles.alt}`}>
-                Every business day the government asks companies for a price on
-                parts and supplies. Bid Prospect shows what they need, how many
-                they want, who is allowed to bid, and the day your price is due.
+                Every business day the Defense Logistics Agency posts about 2,000
+                requests for quotes (RFQs) on DIBBS, its bid board for parts and
+                supplies. Bid Prospect shows what they need, how many they want,
+                who is allowed to bid, and the day your quote is due.
               </p>
               <div className={`${styles.actions} ${styles.alt}`}>
                 <a className={styles.primary} href="/dashboard">
@@ -175,32 +151,7 @@ export default async function LandingPage() {
         </section>
       </main>
 
-      <footer className={`${styles.footer} ${styles.alt}`}>
-        <div className={styles.wrap}>
-          <div className={styles.footerTop}>
-            <div className={styles.brandLockup}>
-              <img src="/logo.svg" alt="" width={896} height={637} />
-              <span>© {year} Bid Prospect</span>
-            </div>
-            <nav className={styles.footerNav} aria-label="Footer">
-              <a href="/dashboard">Today's full list</a>
-              <a href="https://www.dibbs.bsm.dla.mil/RFQ/" target="_blank" rel="noreferrer">
-                Official bid board
-              </a>
-            </nav>
-          </div>
-          <div className={styles.footerBottom}>
-            <span className={styles.live}>
-              <i aria-hidden="true" />
-              Taken from the public government bid board. If they left something blank, it stays blank here.
-            </span>
-            <span>
-              Bid Prospect is a separate website. It is not run by the government.
-            </span>
-          </div>
-        </div>
-      </footer>
-    </div>
+    </SiteShell>
   );
 }
 

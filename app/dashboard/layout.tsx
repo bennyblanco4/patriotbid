@@ -1,6 +1,6 @@
-const title = "Today's requests";
+const title = "Today's DIBBS RFQs";
 const description =
-  "The full list of government requests for prices from today. Search by part name, see how many they want, who can bid, and when the price is due.";
+  "Every DLA request for quotes posted on DIBBS today. Search by part name, NSN or solicitation number and filter by category, set-aside, award method and deadline.";
 
 export const metadata = {
   title,
@@ -25,7 +25,7 @@ const dashboardSchema = {
   "@type": "WebPage",
   "@id": "https://bidprospect.com/dashboard#webpage",
   url: "https://bidprospect.com/dashboard",
-  name: "Today's requests | Bid Prospect",
+  name: "Today's DIBBS RFQs | Bid Prospect",
   description,
   isPartOf: { "@id": "https://bidprospect.com/#website" },
   inLanguage: "en",

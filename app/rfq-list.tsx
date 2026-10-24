@@ -12,6 +12,7 @@ import {
 import { CategoryLabel } from "./fsc";
 import {
   daysLeft,
+  isNsn,
   techDocsLink,
   todayEt,
   type Opportunity,
@@ -28,7 +29,7 @@ export function sortLikeDashboard(rows: Opportunity[], today = todayEt()) {
   });
 }
 
-const formatDate = (value: string | null) =>
+export const formatDate = (value: string | null) =>
   value
     ? new Date(value + "T12:00:00").toLocaleDateString("en-US", {
         month: "short",
@@ -36,14 +37,14 @@ const formatDate = (value: string | null) =>
       })
     : "No date";
 
-function dueText(days: number | null) {
+export function dueText(days: number | null) {
   if (days === null) return "Date not listed";
   if (days < 0) return "Deadline passed";
   if (days === 0) return "Due today";
   return days === 1 ? "1 day left" : `${days} days left`;
 }
 
-function setAsideParts(
+export function setAsideParts(
   value: string,
 ): { label: string; icon: LucideIcon | null; open: boolean }[] {
   const text = value.toLowerCase();
@@ -112,9 +113,15 @@ export function RfqList({
                 <tr key={row.id} className={days !== null && days < 0 ? "past" : ""}>
                   <td className="item">
                     <div className="item-wrap">
-                      <a className="open" href={row.url} target="_blank" rel="noreferrer">
-                        {row.title}
-                      </a>
+                      {isNsn(row.nsn) ? (
+                        <a className="open" href={`/nsn/${row.nsn}`}>
+                          {row.title}
+                        </a>
+                      ) : (
+                        <a className="open" href={row.url} target="_blank" rel="noreferrer">
+                          {row.title}
+                        </a>
+                      )}
                     </div>
                   </td>
                   <td className="category">

@@ -15,6 +15,8 @@ export type Opportunity = {
   url: string;
   pdf?: string | null;
 };
+export const isNsn = (value: string) => /^\d{4}-\d{2}-\d{3}-\d{4}$/.test(value);
+
 export function pdfLink(solicitation: string): string | null {
   const id = solicitation.replace(/[^A-Za-z0-9]/g, "");
   if (!/^[A-Z0-9]{13,}$/i.test(id)) return null;

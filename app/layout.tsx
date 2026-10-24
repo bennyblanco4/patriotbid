@@ -7,11 +7,11 @@ const GA_MEASUREMENT_ID = "G-9TM8JE6G9H";
 export const metadata = {
   metadataBase: new URL("https://bidprospect.com"),
   title: {
-    default: "Bid Prospect | See which government requests are worth a price",
+    default: "Bid Prospect | Free DIBBS search for DLA RFQs",
     template: "%s | Bid Prospect",
   },
   description:
-    "Every business day the government asks companies for a price on parts and supplies. Bid Prospect shows what they need, how many, who can bid, and when the price is due.",
+    "Search today's DLA requests for quotes from DIBBS in plain English: what the government needs, how many, who can bid, past award prices and when quotes are due. Free, no sign-up.",
   applicationName: "Bid Prospect",
   openGraph: {
     siteName: "Bid Prospect",

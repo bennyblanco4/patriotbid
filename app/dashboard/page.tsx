@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import {
   awardMethod,
+  isNsn,
   daysLeft,
   filterRows,
   initialFilters,
@@ -1348,7 +1349,13 @@ export default function Home() {
             </button>
             <div className="eyebrow">SOLICITATION DETAILS</div>
             <h2>{selected.title}</h2>
-            <p className="mono muted">{selected.nsn}</p>
+            <p className="mono muted">
+              {isNsn(selected.nsn) ? (
+                <a href={`/nsn/${selected.nsn}`}>{selected.nsn}</a>
+              ) : (
+                selected.nsn
+              )}
+            </p>
             <dl>
               {(
                 [

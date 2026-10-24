@@ -150,6 +150,16 @@ const groups: Record<string, [string, LucideIcon]> = {
   "96": ["Ores and minerals", Gem],
 };
 
+const slug = (label: string) =>
+  label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+// Every supply group with the URL slug its category page uses.
+export const supplyGroups = Object.entries(groups).map(([code, [label]]) => ({
+  code,
+  label,
+  slug: slug(label),
+}));
+
 export function supplyGroup(fsc: string) {
   const [label, icon] = groups[fsc.slice(0, 2)] ?? ["Other supplies", Package];
   return { label, icon };
